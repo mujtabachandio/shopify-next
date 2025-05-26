@@ -1,96 +1,285 @@
 "use client"
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
 import VideoCard from "@/components/VideoCard";
-import { VideoProduct } from "@/lib/shopify";
+import { getAllProducts } from "@/lib/shopify-api";
 import { useInView } from "react-intersection-observer";
 import BottomNav from "@/components/BottomNav";
+import { useTheme } from "./providers";
+import { FaSun, FaMoon } from "react-icons/fa";
 
-// Sample video data for testing
-const sampleVideos: VideoProduct[] = [
-  {
-    id: "1",
-    title: "Beautiful Summer Collection 2024",
-    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-girl-in-neon-sign-1232-large.mp4",
-    thumbnail: "https://assets.mixkit.co/videos/preview/mixkit-girl-in-neon-sign-1232-large.jpg",
-    likes: 1234,
-    comments: 89,
-    shares: 45,
-    price: 129.99
-  },
-  {
-    id: "2",
-    title: "New Arrivals - Spring Fashion",
-    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-tree-with-yellow-flowers-1173-large.mp4",
-    thumbnail: "https://assets.mixkit.co/videos/preview/mixkit-tree-with-yellow-flowers-1173-large.jpg",
-    likes: 856,
-    comments: 67,
-    shares: 34,
-    price: 149.99
-  },
-  {
-    id: "3",
-    title: "Exclusive Winter Collection",
-    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-mother-with-her-little-daughter-eating-a-marshmallow-in-nature-39764-large.mp4",
-    thumbnail: "https://assets.mixkit.co/videos/preview/mixkit-mother-with-her-little-daughter-eating-a-marshmallow-in-nature-39764-large.jpg",
-    likes: 2345,
-    comments: 156,
-    shares: 78,
-    price: 199.99
-  }
-];
+interface ShopifyProduct {
+  id: string;
+  title: string;
+  description: string;
+  price: {
+    amount: number;
+    currencyCode: string;
+  };
+  handle: string;
+  media: Array<{
+    type: string;
+    imageUrl?: string;
+    videoUrl?: string;
+    originUrl?: string;
+    host?: string;
+  }>;
+}
+
+interface Product extends ShopifyProduct {
+  image: string;
+  videoUrl: string;
+  mediaType: 'IMAGE' | 'VIDEO' | 'YOUTUBE';
+  category: string;
+  brandName?: string;
+  thumbnail: string;
+  hasVideo: boolean;
+}
+
+interface Collection {
+  id: string;
+  title: string;
+  products: Product[];
+}
+
+interface ApiResponse {
+  collections: Collection[];
+}
+
+interface ProcessedProduct extends Product {
+  videoUrl: string;
+  thumbnail: string;
+  hasVideo: boolean;
+}
 
 export default function HomePage() {
-  const [videos, setVideos] = useState<VideoProduct[]>(sampleVideos);
-  const [loading, setLoading] = useState(false);
-  const { ref, inView } = useInView({
-    threshold: 0.5,
-  });
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [endCursor, setEndCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const { ref, inView } = useInView();
+  const { theme, toggleTheme } = useTheme();
+
+  const getVideoUrl = useCallback((url: string, host?: string): string => {
+    if (!url) return '';
+    
+    // If it's a direct video URL, return it
+    if (url.endsWith('.mp4') || url.endsWith('.mov') || url.endsWith('.webm')) {
+      return url;
+    }
+    
+    // If it's a YouTube URL, convert to direct video URL
+    if (host === 'YOUTUBE' || url.includes('youtube.com') || url.includes('youtu.be')) {
+      const videoId = url.includes('youtu.be') 
+        ? url.split('/').pop() 
+        : new URL(url).searchParams.get('v');
+      
+      if (!videoId) return url;
+      
+      // Use the YouTube embed URL with autoplay and other parameters
+      return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&controls=0&loop=1&playlist=${videoId}`;
+    }
+    
+    return url;
+  }, []);
+
+  const getYouTubeThumbnail = useCallback((url: string): string => {
+    if (!url) return '';
+    
+    if (url.includes('youtu.be')) {
+      const videoId = url.split('/').pop();
+      return videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '';
+    }
+    if (url.includes('youtube.com')) {
+      const videoId = new URL(url).searchParams.get('v');
+      return videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '';
+    }
+    return '';
+  }, []);
+
+  const fetchProducts = useCallback(async () => {
+    try {
+      const response = await fetch('/api/collections');
+      if (!response.ok) {
+        throw new Error('Failed to fetch collections');
+      }
+      const data: ApiResponse = await response.json();
+      setCollections(data.collections);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to fetch collections');
+    }
+  }, []);
+
+  const fetchProductsFromApi = useCallback(async (cursor: string | null = null) => {
+    try {
+      setLoading(true);
+      const response = await getAllProducts(50, cursor || undefined);
+      
+      if (!response.products || response.products.length === 0) {
+        setHasMore(false);
+        return;
+      }
+
+      const processedProducts: ProcessedProduct[] = response.products.map((product: ShopifyProduct) => {
+        const videoMedia = product.media?.find((m) => m.type === 'VIDEO');
+        const externalVideoMedia = product.media?.find((m) => m.type === 'EXTERNAL_VIDEO');
+        const imageMedia = product.media?.find((m) => m.type === 'IMAGE');
+        
+        let videoUrl = '';
+        let thumbnail = '/placeholder.jpg';
+
+        if (imageMedia?.imageUrl) {
+          thumbnail = imageMedia.imageUrl;
+        }
+
+        if (externalVideoMedia?.originUrl) {
+          const originUrl = externalVideoMedia.originUrl;
+          const host = externalVideoMedia.host || '';
+          videoUrl = getVideoUrl(originUrl, host);
+          if (host === 'YOUTUBE') {
+            const youtubeThumbnail = getYouTubeThumbnail(originUrl);
+            if (youtubeThumbnail) {
+              thumbnail = youtubeThumbnail;
+            }
+          }
+        } else if (videoMedia?.videoUrl) {
+          videoUrl = videoMedia.videoUrl;
+        }
+
+        const processedProduct: ProcessedProduct = {
+          ...product,
+          videoUrl,
+          thumbnail,
+          hasVideo: !!videoUrl,
+          image: thumbnail,
+          mediaType: videoUrl ? 'VIDEO' : 'IMAGE',
+          category: 'Uncategorized'
+        };
+
+        return processedProduct;
+      });
+
+      if (!cursor) {
+        setProducts(processedProducts);
+      } else {
+        setProducts(prev => [...prev, ...processedProducts]);
+      }
+
+      setHasMore(response.hasNextPage);
+      setEndCursor(response.endCursor || null);
+    } catch (error) {
+      setError('Failed to load products. Please try again later.');
+      console.error('Error loading products:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [getVideoUrl, getYouTubeThumbnail]);
 
   useEffect(() => {
-    if (inView && !loading) {
-      setLoading(true);
-      // Simulate loading more videos
-      setTimeout(() => {
-        setVideos((prev) => [...prev, ...sampleVideos]);
-        setLoading(false);
-      }, 1000);
-    }
-  }, [inView, loading]);
+    fetchProducts();
+  }, [fetchProducts]);
 
-  return (
-    <div className="h-screen w-full overflow-hidden bg-background">
-      <Header />
-      <div className="flex h-[calc(100vh-4rem)]">
-        <Sidebar />
-        <div className="flex-1 h-full overflow-y-scroll snap-y snap-mandatory hide-scrollbar">
-          {videos.map((video) => (
-            <div
-              key={video.id}
-              className="h-screen w-full snap-start snap-always"
-            >
-              <VideoCard
-                id={video.id}
-                title={video.title}
-                videoUrl={video.videoUrl}
-                thumbnail={video.thumbnail}
-                brandName={video.brandName}
-                likes={video.likes}
-                comments={video.comments}
-                shares={video.shares}
-                price={video.price}
-              />
-            </div>
-          ))}
-          <div ref={ref} className="h-20 flex items-center justify-center">
-            {loading && (
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            )}
-          </div>
+  useEffect(() => {
+    if (collections.length > 0) {
+    }
+  }, [collections]);
+
+  useEffect(() => {
+    fetchProductsFromApi();
+  }, [fetchProductsFromApi]);
+
+  useEffect(() => {
+    if (inView && hasMore && !loading) {
+      fetchProductsFromApi(endCursor);
+    }
+  }, [inView, hasMore, loading, endCursor, fetchProductsFromApi]);
+
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-2xl text-center">
+          <p className="mb-4">{error}</p>
+          <button
+            onClick={fetchProducts}
+            className="text-white/80 hover:text-white transition-colors underline"
+          >
+            Try Again
+          </button>
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-black">
+      <Header />
+      <div className="flex">
+        <Sidebar />
+        <main className="flex-1">
+          <div className="snap-y snap-mandatory h-screen overflow-y-auto">
+            {products.length === 0 ? (
+              <div className="h-screen flex items-center justify-center text-white">
+                <p>No products available</p>
+              </div>
+            ) : (
+              <>
+                {products.map((product) => (
+                  <div key={product.id} className="h-screen">
+                    <VideoCard
+                      id={product.id}
+                      title={product.title}
+                      videoUrl={product.videoUrl}
+                      thumbnail={product.thumbnail}
+                      description={product.description}
+                      price={product.price}
+                      brandName={product.brandName || ''}
+                      likes={Math.floor(Math.random() * 1000)}
+                      comments={Math.floor(Math.random() * 100)}
+                      shares={Math.floor(Math.random() * 50)}
+                    />
+                  </div>
+                ))}
+                <div ref={ref} className="h-20 flex items-center justify-center">
+                  {loading && (
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
+                  )}
+                  {!hasMore && !loading && products.length > 0 && (
+                    <p className="text-white/60">No more products to load</p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </main>
+      </div>
       <BottomNav />
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="flex justify-end">
+          <button
+            onClick={toggleTheme}
+            className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+            aria-label="Toggle theme"
+          >
+            {theme === 'light' ? (
+              <>
+                <FaMoon className="text-lg" />
+                <span>Dark Mode</span>
+              </>
+            ) : (
+              <>
+                <FaSun className="text-lg" />
+                <span>Light Mode</span>
+              </>
+            )}
+          </button>
+        </div>
+        <h1 className="text-4xl font-bold mt-8">Welcome to Sasta Bazar</h1>
+        <p className="text-lg mt-4">Current theme: {theme}</p>
+      </div>
     </div>
   );
 }
