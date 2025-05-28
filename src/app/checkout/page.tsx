@@ -33,6 +33,7 @@ export default function CheckoutPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify({
           items: items.map(item => ({
@@ -46,16 +47,19 @@ export default function CheckoutPage() {
         })
       });
 
+      // Check if response is ok before trying to parse JSON
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Server response:', errorText);
+        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+      }
+
       let data;
       try {
         data = await response.json();
       } catch (jsonError) {
         console.error('Error parsing response:', jsonError);
         throw new Error('Invalid response from server. Please try again.');
-      }
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create checkout');
       }
 
       if (!data.checkout?.webUrl) {

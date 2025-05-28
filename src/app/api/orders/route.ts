@@ -147,7 +147,8 @@ const GET_CART = `
   ${cartFragment}
 `;
 
-export async function GET(request: Request) {
+// Export both methods as named exports
+export const GET = async (request: Request) => {
   try {
     const { searchParams } = new URL(request.url);
     const cartId = searchParams.get('cartId');
@@ -176,9 +177,9 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
-}
+};
 
-export async function POST(request: Request) {
+export const POST = async (request: Request) => {
   try {
     let body;
     try {
@@ -280,4 +281,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-} 
+}; 
