@@ -51,9 +51,9 @@ interface CartResponse {
 }
 
 // Initialize Shopify Storefront GraphQL client
-const client = new GraphQLClient('https://tven40-ib.myshopify.com/api/2024-01/graphql.json', {
+const client = new GraphQLClient(`https://${process.env.SHOPIFY_STORE_DOMAIN}/api/2024-01/graphql.json`, {
   headers: {
-    'X-Shopify-Storefront-Access-Token': 'c72eea1c6de28db7d3f0fa22f0cf86fa',
+    'X-Shopify-Storefront-Access-Token': process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || '',
     'Content-Type': 'application/json',
   },
 });
@@ -116,7 +116,7 @@ export async function OPTIONS() {
   });
 }
 
-export async function POST() {
+export async function GET() {
   return new NextResponse(
     JSON.stringify({ error: 'Method not allowed. Please use POST for creating orders.' }),
     { 
@@ -129,7 +129,7 @@ export async function POST() {
   );
 }
 
-export async function GET(request: Request) {
+export async function POST(request: Request) {
   try {
     let body;
     try {
@@ -249,7 +249,7 @@ export async function GET(request: Request) {
       });
     }
     return new NextResponse(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to create cart' }),
+      JSON.stringify({ error: 'Failed to create cart' }),
       { 
         status: 500,
         headers: {
@@ -259,4 +259,4 @@ export async function GET(request: Request) {
       }
     );
   }
-} 
+}

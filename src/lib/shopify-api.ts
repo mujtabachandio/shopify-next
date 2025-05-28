@@ -1,13 +1,11 @@
 import { GraphQLClient } from 'graphql-request';
 import { GET_COLLECTIONS, GET_PRODUCT, GET_PRODUCTS_BY_COLLECTION, GET_ALL_PRODUCTS } from './shopify-queries';
 
-// Hard-coded Shopify credentials
-const SHOPIFY_STORE_URL = 'https://tven40-ib.myshopify.com';
-const SHOPIFY_STOREFRONT_ACCESS_TOKEN = 'c72eea1c6de28db7d3f0fa22f0cf86fa';
-
-const client = new GraphQLClient(`${SHOPIFY_STORE_URL}/api/2024-01/graphql.json`, {
+// Initialize Shopify Storefront GraphQL client
+const client = new GraphQLClient(`https://${process.env.SHOPIFY_STORE_DOMAIN}/api/2024-01/graphql.json`, {
   headers: {
-    'X-Shopify-Storefront-Access-Token': SHOPIFY_STOREFRONT_ACCESS_TOKEN,
+    'X-Shopify-Storefront-Access-Token': process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || '',
+    'Content-Type': 'application/json',
   },
 });
 
