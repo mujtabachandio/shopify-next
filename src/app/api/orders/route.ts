@@ -34,33 +34,33 @@ import { GraphQLClient } from 'graphql-request';
 //   };
 // }
 
-interface DraftOrderResponse {
-  draftOrderCreate: {
-    draftOrder?: {
-      id: string;
-      order?: {
-        id: string;
-        name: string;
-        totalPriceSet: {
-          shopMoney: {
-            amount: string;
-            currencyCode: string;
-          };
-        };
-      };
-      checkoutUrl: string;
-    };
-    userErrors: Array<{
-      field: string;
-      message: string;
-    }>;
-  };
-}
+// interface DraftOrderResponse {
+//   draftOrderCreate: {
+//     draftOrder?: {
+//       id: string;
+//       order?: {
+//         id: string;
+//         name: string;
+//         totalPriceSet: {
+//           shopMoney: {
+//             amount: string;
+//             currencyCode: string;
+//           };
+//         };
+//       };
+//       checkoutUrl: string;
+//     };
+//     userErrors: Array<{
+//       field: string;
+//       message: string;
+//     }>;
+//   };
+// }
 
-// Initialize Shopify Admin GraphQL client
-const client = new GraphQLClient('https://tven40-ib.myshopify.com/admin/api/2024-01/graphql.json', {
+// Initialize Shopify Storefront GraphQL client
+const client = new GraphQLClient('https://tven40-ib.myshopify.com/api/2024-01/graphql.json', {
   headers: {
-    'X-Shopify-Access-Token': process.env.SHOPIFY_ADMIN_ACCESS_TOKEN || '',
+    'X-Shopify-Storefront-Access-Token': 'c72eea1c6de28db7d3f0fa22f0cf86fa',
     'Content-Type': 'application/json',
   },
 });
@@ -86,21 +86,11 @@ const client = new GraphQLClient('https://tven40-ib.myshopify.com/admin/api/2024
 //   }
 // `;
 
-const CREATE_CHECKOUT = `
-  mutation draftOrderCreate($input: DraftOrderInput!) {
-    draftOrderCreate(input: $input) {
-      draftOrder {
+const CREATE_CART = `
+  mutation cartCreate($input: CartInput!) {
+    cartCreate(input: $input) {
+      cart {
         id
-        order {
-          id
-          name
-          totalPriceSet {
-            shopMoney {
-              amount
-              currencyCode
-            }
-          }
-        }
         checkoutUrl
       }
       userErrors {
@@ -110,6 +100,19 @@ const CREATE_CHECKOUT = `
     }
   }
 `;
+
+interface CartResponse {
+  cartCreate: {
+    cart?: {
+      id: string;
+      checkoutUrl: string;
+    };
+    userErrors: Array<{
+      field: string;
+      message: string;
+    }>;
+  };
+}
 
 // CORS headers configuration
 const corsHeaders = {
@@ -168,42 +171,32 @@ export async function POST(request: Request) {
 
     console.log('Processing items:', items);
 
-    // Format line items for draft order
-    const lineItems = items.map(item => ({
-      variantId: item.productId,
-      quantity: item.quantity,
-      title: item.title,
-      price: item.price.amount
+    // Format line items for cart
+    const lines = items.map(item => ({
+      merchandiseId: item.productId,
+      quantity: item.quantity
     }));
 
-    console.log('Created line items:', lineItems);
+    console.log('Created cart lines:', lines);
 
-    // Create draft order in Shopify
-    const response = await client.request<DraftOrderResponse>(CREATE_CHECKOUT, {
+    // Create cart in Shopify
+    const response = await client.request<CartResponse>(CREATE_CART, {
       input: {
-        lineItems,
-        email: 'customer@example.com',
-        shippingAddress: {
-          address1: '123 Main St',
-          city: 'Toronto',
-          province: 'ON',
-          country: 'Canada',
-          zip: 'M5V 2T6'
-        }
+        lines
       }
     });
 
     console.log('Shopify response:', response);
 
-    const draftOrderCreate = response.draftOrderCreate;
-    if (!draftOrderCreate) {
+    const cartCreate = response.cartCreate;
+    if (!cartCreate) {
       return corsResponse(
-        { error: 'Failed to create draft order' },
+        { error: 'Failed to create cart' },
         500
       );
     }
 
-    const userErrors = draftOrderCreate.userErrors || [];
+    const userErrors = cartCreate.userErrors || [];
     if (userErrors.length > 0) {
       return corsResponse(
         { error: userErrors.map((e: { message: string }) => e.message).join(', ') },
@@ -211,23 +204,23 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!draftOrderCreate.draftOrder?.checkoutUrl) {
+    if (!cartCreate.cart?.checkoutUrl) {
       return corsResponse(
         { error: 'No checkout URL received from Shopify' },
         500
       );
     }
 
-    console.log('Draft order created successfully:', draftOrderCreate.draftOrder);
+    console.log('Cart created successfully:', cartCreate.cart);
 
     return corsResponse({
       success: true,
       checkout: {
-        webUrl: draftOrderCreate.draftOrder.checkoutUrl
+        webUrl: cartCreate.cart.checkoutUrl
       }
     });
   } catch (error) {
-    console.error('Error creating draft order:', error);
+    console.error('Error creating cart:', error);
     return corsResponse(
       { error: error instanceof Error ? error.message : 'An unexpected error occurred' },
       500
