@@ -193,6 +193,14 @@ export async function OPTIONS() {
 export async function POST(request: Request) {
   console.log('📬 /api/orders POST request received');
 
+  // Verify request method
+  if (request.method !== 'POST') {
+    return corsResponse(
+      { error: `Method ${request.method} not allowed` },
+      405
+    );
+  }
+
   try {
     // Parse the request body
     let body;
@@ -219,55 +227,18 @@ export async function POST(request: Request) {
 
     console.log('Processing items:', items);
 
-    // Validate and format line items for cart
-    const validatedLines = [];
-    for (const item of items) {
-      if (!item.productId || !item.quantity) {
-        return corsResponse(
-          { error: 'Each item must have a productId and quantity' },
-          400
-        );
-      }
+    // Format line items for cart
+    const lines = items.map(item => ({
+      merchandiseId: item.productId,
+      quantity: item.quantity
+    }));
 
-      // Verify the product variant exists and is published
-      try {
-        const variantResponse = await client.request<ProductVariantResponse>(GET_PRODUCT_VARIANT, {
-          id: item.productId
-        });
-
-        if (!variantResponse.productVariant) {
-          return corsResponse(
-            { error: `Product variant ${item.productId} not found` },
-            400
-          );
-        }
-
-        if (!variantResponse.productVariant.product.publishedAt) {
-          return corsResponse(
-            { error: `Product ${variantResponse.productVariant.product.title} is not published` },
-            400
-          );
-        }
-
-        validatedLines.push({
-          merchandiseId: item.productId,
-          quantity: item.quantity
-        });
-      } catch (error) {
-        console.error('Error validating product variant:', error);
-        return corsResponse(
-          { error: `Failed to validate product variant ${item.productId}` },
-          400
-        );
-      }
-    }
-
-    console.log('Validated cart lines:', validatedLines);
+    console.log('Created cart lines:', lines);
 
     // Create cart in Shopify
     const response = await client.request<CartResponse>(CREATE_CART, {
       input: {
-        lines: validatedLines
+        lines
       }
     });
 
