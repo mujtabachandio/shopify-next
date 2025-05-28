@@ -85,10 +85,25 @@ const CREATE_CHECKOUT = `
   }
 `;
 
+// Add CORS headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+// Handle OPTIONS request for CORS
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
+
 export async function GET() {
   return NextResponse.json(
     { error: 'Method not allowed. Please use POST for creating orders.' },
-    { status: 405 }
+    { 
+      status: 405,
+      headers: corsHeaders
+    }
   );
 }
 
@@ -101,7 +116,10 @@ export async function POST(request: Request) {
       console.error('Failed to parse request body:', error);
       return NextResponse.json(
         { error: 'Invalid JSON in request body' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -110,7 +128,10 @@ export async function POST(request: Request) {
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
         { error: 'No items provided in the order' },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -173,7 +194,10 @@ export async function POST(request: Request) {
       console.error('No checkout response from Shopify');
       return NextResponse.json(
         { error: 'Failed to create checkout - no response from Shopify' },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -182,7 +206,10 @@ export async function POST(request: Request) {
       console.error('Checkout creation errors:', userErrors);
       return NextResponse.json(
         { error: userErrors.map((e: { message: string }) => e.message).join(', ') },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -190,13 +217,18 @@ export async function POST(request: Request) {
       console.error('No checkout URL in response:', checkoutCreate);
       return NextResponse.json(
         { error: 'No checkout URL received from Shopify' },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: corsHeaders
+        }
       );
     }
 
     return NextResponse.json({
       success: true,
       checkout: checkoutCreate.checkout
+    }, {
+      headers: corsHeaders
     });
   } catch (error) {
     console.error('Error creating checkout:', error);
@@ -210,7 +242,10 @@ export async function POST(request: Request) {
     }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to create checkout' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: corsHeaders
+      }
     );
   }
 } 

@@ -44,14 +44,21 @@ export default function CheckoutPage() {
         data = JSON.parse(text);
       } catch (jsonError) {
         console.error('Error parsing response:', jsonError);
+        console.error('Raw response text:', text);
         throw new Error('Invalid response from server. Please try again.');
       }
 
       if (!response.ok) {
+        console.error('Server error:', {
+          status: response.status,
+          statusText: response.statusText,
+          data
+        });
         throw new Error(data.error || 'Failed to create checkout');
       }
 
       if (!data.checkout?.webUrl) {
+        console.error('No checkout URL in response:', data);
         throw new Error('No checkout URL received from server');
       }
 
