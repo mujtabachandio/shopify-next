@@ -24,7 +24,7 @@ export default function CheckoutPage() {
       console.log('Sending checkout request with items:', formattedItems);
 
       // Create a checkout in Shopify
-      const response = await fetch('/api/orders', {
+      const response = await fetch('/api/orders/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
