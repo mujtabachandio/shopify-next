@@ -7,6 +7,10 @@ const getClient = () => {
   const SHOPIFY_STOREFRONT_ACCESS_TOKEN = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN;
 
   if (!SHOPIFY_STORE_DOMAIN || !SHOPIFY_STOREFRONT_ACCESS_TOKEN) {
+    console.error('Shopify environment variables missing:', {
+      storeDomain: SHOPIFY_STORE_DOMAIN ? 'set' : 'missing',
+      accessToken: SHOPIFY_STOREFRONT_ACCESS_TOKEN ? 'set' : 'missing'
+    });
     // During build time, return a mock client that throws a more descriptive error
     return {
       request: async () => {
@@ -17,7 +21,10 @@ const getClient = () => {
     };
   }
 
-  return new GraphQLClient(`https://${SHOPIFY_STORE_DOMAIN}/api/2024-01/graphql.json`, {
+  const endpoint = `https://${SHOPIFY_STORE_DOMAIN}/api/2024-01/graphql.json`;
+  console.log('Initializing Shopify GraphQL client with endpoint:', endpoint);
+
+  return new GraphQLClient(endpoint, {
     headers: {
       'X-Shopify-Storefront-Access-Token': SHOPIFY_STOREFRONT_ACCESS_TOKEN,
       'Content-Type': 'application/json',
@@ -26,6 +33,26 @@ const getClient = () => {
 };
 
 const client = getClient();
+
+// Add a wrapper function for GraphQL requests with better error handling
+const makeRequest = async <T>(query: string, variables?: any): Promise<T> => {
+  try {
+    console.log('Making GraphQL request:', {
+      query: query.split('\n')[0] + '...', // Log first line of query
+      variables
+    });
+    
+    const response = await client.request(query, variables);
+    return response as T;
+  } catch (error) {
+    console.error('GraphQL request failed:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      query: query.split('\n')[0] + '...',
+      variables
+    });
+    throw error;
+  }
+};
 
 export interface Media {
   type: string;
@@ -381,99 +408,55 @@ interface GraphQLMediaNode {
 export async function getCollections(first: number = 5, after?: string): Promise<CollectionsResponse> {
   try {
     console.log('Fetching collections with params:', { first, after });
+    const response = await makeRequest<GraphQLResponse>(GET_COLLECTIONS, { first, after });
     
-    const response = await client.request(GET_COLLECTIONS, {
-      first,
-      after: after || null,
-    }) as GraphQLResponse;
-
-    console.log('Raw API response:', response);
-
-    if (!response.collections || !response.collections.edges) {
-      console.error('Invalid API response structure:', response);
-      return { collections: [], hasNextPage: false };
+    if (!response.collections?.edges) {
+      console.error('Invalid collections response:', response);
+      throw new Error('Invalid response from Shopify: collections data is missing');
     }
 
-    const collections = response.collections.edges.map((edge) => {
-      const node = edge.node;
-      console.log('Processing collection node:', node.title);
-      
-      if (!node.products || !node.products.edges) {
-        console.log('No products found in collection:', node.title);
-        return {
-          id: node.id,
-          title: node.title,
-          handle: node.handle,
-          description: node.description,
-          products: []
-        };
-      }
+    const collections = response.collections.edges.map(({ node }) => ({
+      id: node.id,
+      title: node.title,
+      handle: node.handle,
+      description: node.description,
+      products: node.products.edges.map(({ node: productNode }) => ({
+        id: productNode.id,
+        title: productNode.title,
+        handle: productNode.handle,
+        description: productNode.description,
+        status: productNode.status,
+        media: productNode.media.edges.map(({ node: mediaNode }) => ({
+          type: mediaNode.mediaContentType,
+          imageUrl: mediaNode.image?.url,
+          imageAltText: mediaNode.image?.altText,
+          imageWidth: mediaNode.image?.width,
+          imageHeight: mediaNode.image?.height,
+          videoUrl: mediaNode.sources?.[0]?.url,
+          videoMimeType: mediaNode.sources?.[0]?.mimeType,
+          videoWidth: mediaNode.sources?.[0]?.width,
+          videoHeight: mediaNode.sources?.[0]?.height,
+          embedUrl: mediaNode.embedUrl,
+          host: mediaNode.host,
+          originUrl: mediaNode.originUrl
+        })),
+        price: {
+          amount: parseFloat(productNode.priceRange.minVariantPrice.amount),
+          currencyCode: productNode.priceRange.minVariantPrice.currencyCode
+        },
+        variants: productNode.variants
+      }))
+    }));
 
-      const products = node.products.edges.map((productEdge) => {
-        const product = productEdge.node;
-        console.log('Processing product:', product.title, 'Status:', product.status);
-        
-        return {
-          id: product.id,
-          title: product.title,
-          handle: product.handle,
-          description: product.description,
-          status: product.status,
-          media: product.media.edges.map((mediaEdge) => {
-            const mediaNode = mediaEdge.node;
-            const media: Media = {
-              type: mediaNode.mediaContentType,
-            };
-
-            switch (mediaNode.mediaContentType) {
-              case 'VIDEO':
-                media.videoUrl = mediaNode.sources?.[0]?.url;
-                media.videoMimeType = mediaNode.sources?.[0]?.mimeType;
-                media.videoHeight = mediaNode.sources?.[0]?.height;
-                media.videoWidth = mediaNode.sources?.[0]?.width;
-                break;
-              case 'EXTERNAL_VIDEO':
-                media.embedUrl = mediaNode.embedUrl;
-                media.host = mediaNode.host;
-                media.originUrl = mediaNode.originUrl;
-                break;
-              case 'IMAGE':
-                media.imageUrl = mediaNode.image?.url;
-                media.imageAltText = mediaNode.image?.altText;
-                media.imageWidth = mediaNode.image?.width;
-                media.imageHeight = mediaNode.image?.height;
-                break;
-            }
-
-            return media;
-          }),
-          price: {
-            amount: parseFloat(product.priceRange.minVariantPrice.amount),
-            currencyCode: product.priceRange.minVariantPrice.currencyCode,
-          },
-          variants: product.variants
-        };
-      });
-
-      return {
-        id: node.id,
-        title: node.title,
-        handle: node.handle,
-        description: node.description,
-        products
-      };
-    });
-
-    console.log('Processed collections:', collections);
-
+    console.log(`Successfully processed ${collections.length} collections`);
     return {
       collections,
       hasNextPage: response.collections.pageInfo.hasNextPage,
-      endCursor: response.collections.pageInfo.endCursor,
+      endCursor: response.collections.pageInfo.endCursor
     };
   } catch (error) {
-    console.error('Error fetching collections:', error);
-    return { collections: [], hasNextPage: false };
+    console.error('Error in getCollections:', error);
+    throw error;
   }
 }
 
