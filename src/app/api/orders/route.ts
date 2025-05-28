@@ -62,29 +62,27 @@ const client = new GraphQLClient('https://tven40-ib.myshopify.com/api/2024-01/gr
   headers: {
     'X-Shopify-Storefront-Access-Token': 'c72eea1c6de28db7d3f0fa22f0cf86fa',
     'Content-Type': 'application/json',
+    'Accept': 'application/json',
   },
 });
 
-// const GET_PRODUCT_VARIANT = `
-//   query getProductVariant($id: ID!) {
-//     product(id: $id) {
-//       id
-//       title
-//       variants(first: 1) {
-//         edges {
-//           node {
-//             id
-//             title
-//             price {
-//               amount
-//               currencyCode
-//             }
-//           }
-//         }
-//       }
-//     }
-//   }
-// `;
+const GET_PRODUCT_VARIANT = `
+  query getProductVariant($id: ID!) {
+    productVariant(id: $id) {
+      id
+      title
+      price {
+        amount
+        currencyCode
+      }
+      product {
+        id
+        title
+        publishedAt
+      }
+    }
+  }
+`;
 
 const CREATE_CART = `
   mutation cartCreate($input: CartInput!) {
@@ -92,6 +90,24 @@ const CREATE_CART = `
       cart {
         id
         checkoutUrl
+        lines(first: 10) {
+          edges {
+            node {
+              id
+              quantity
+              merchandise {
+                ... on ProductVariant {
+                  id
+                  title
+                  price {
+                    amount
+                    currencyCode
+                  }
+                }
+              }
+            }
+          }
+        }
       }
       userErrors {
         field
@@ -101,11 +117,43 @@ const CREATE_CART = `
   }
 `;
 
+interface ProductVariantResponse {
+  productVariant?: {
+    id: string;
+    title: string;
+    price: {
+      amount: string;
+      currencyCode: string;
+    };
+    product: {
+      id: string;
+      title: string;
+      publishedAt: string;
+    };
+  };
+}
+
 interface CartResponse {
   cartCreate: {
     cart?: {
       id: string;
       checkoutUrl: string;
+      lines: {
+        edges: Array<{
+          node: {
+            id: string;
+            quantity: number;
+            merchandise: {
+              id: string;
+              title: string;
+              price: {
+                amount: string;
+                currencyCode: string;
+              };
+            };
+          };
+        }>;
+      };
     };
     userErrors: Array<{
       field: string;
@@ -118,7 +166,7 @@ interface CartResponse {
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
   'Access-Control-Max-Age': '86400',
 };
 
@@ -171,18 +219,55 @@ export async function POST(request: Request) {
 
     console.log('Processing items:', items);
 
-    // Format line items for cart
-    const lines = items.map(item => ({
-      merchandiseId: item.productId,
-      quantity: item.quantity
-    }));
+    // Validate and format line items for cart
+    const validatedLines = [];
+    for (const item of items) {
+      if (!item.productId || !item.quantity) {
+        return corsResponse(
+          { error: 'Each item must have a productId and quantity' },
+          400
+        );
+      }
 
-    console.log('Created cart lines:', lines);
+      // Verify the product variant exists and is published
+      try {
+        const variantResponse = await client.request<ProductVariantResponse>(GET_PRODUCT_VARIANT, {
+          id: item.productId
+        });
+
+        if (!variantResponse.productVariant) {
+          return corsResponse(
+            { error: `Product variant ${item.productId} not found` },
+            400
+          );
+        }
+
+        if (!variantResponse.productVariant.product.publishedAt) {
+          return corsResponse(
+            { error: `Product ${variantResponse.productVariant.product.title} is not published` },
+            400
+          );
+        }
+
+        validatedLines.push({
+          merchandiseId: item.productId,
+          quantity: item.quantity
+        });
+      } catch (error) {
+        console.error('Error validating product variant:', error);
+        return corsResponse(
+          { error: `Failed to validate product variant ${item.productId}` },
+          400
+        );
+      }
+    }
+
+    console.log('Validated cart lines:', validatedLines);
 
     // Create cart in Shopify
     const response = await client.request<CartResponse>(CREATE_CART, {
       input: {
-        lines
+        lines: validatedLines
       }
     });
 
@@ -198,6 +283,7 @@ export async function POST(request: Request) {
 
     const userErrors = cartCreate.userErrors || [];
     if (userErrors.length > 0) {
+      console.error('Cart creation errors:', userErrors);
       return corsResponse(
         { error: userErrors.map((e: { message: string }) => e.message).join(', ') },
         400
