@@ -98,20 +98,43 @@ function corsResponse(data: Record<string, unknown>, status: number = 200) {
 
 // Handle OPTIONS request
 export async function OPTIONS() {
+  const responseHeaders = new Headers(corsHeaders);
+  responseHeaders.set('Access-Control-Allow-Origin', '*');
+  responseHeaders.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  responseHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  responseHeaders.set('Access-Control-Max-Age', '86400');
+
   return new NextResponse(null, {
     status: 204,
-    headers: corsHeaders,
+    headers: responseHeaders,
   });
 }
 
 // Handle POST request
 export async function POST(request: Request) {
   // Add CORS headers to the response
-  
+  const responseHeaders = new Headers(corsHeaders);
+  responseHeaders.set('Access-Control-Allow-Origin', '*');
+  responseHeaders.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  responseHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  responseHeaders.set('Access-Control-Max-Age', '86400');
+
   try {
+    // Log the incoming request
     console.log('Received checkout request');
-    const body = await request.json();
-    console.log('Request body:', body);
+
+    // Parse the request body
+    let body;
+    try {
+      body = await request.json();
+      console.log('Request body:', body);
+    } catch (e) {
+      console.error('Failed to parse request body:', e);
+      return corsResponse(
+        { error: 'Invalid request body' },
+        400
+      );
+    }
 
     const { items } = body;
 
