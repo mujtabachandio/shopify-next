@@ -402,26 +402,6 @@ interface GraphQLMediaNode {
   };
 }
 
-interface CollectionsVariables {
-  first: number;
-  after?: string;
-}
-
-interface ProductVariables {
-  handle: string;
-}
-
-interface ProductsByCollectionVariables {
-  handle: string;
-  first: number;
-  after?: string;
-}
-
-interface AllProductsVariables {
-  first: number;
-  after?: string | null;
-}
-
 export async function getCollections(first: number = 5, after?: string): Promise<CollectionsResponse> {
   try {
     console.log('Fetching collections with params:', { first, after });
