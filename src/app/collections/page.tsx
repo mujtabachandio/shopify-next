@@ -147,14 +147,17 @@ function CollectionsContent() {
   }, []);
 
   const handleAddToCart = (product: Product) => {
-    addItem({
+    console.log('Adding product to cart:', product);
+    const cartItem: CartItem = {
       id: product.id,
       title: product.title,
       price: product.price,
       quantity: 1,
       image: product.image,
       videoUrl: product.videoUrl
-    } as CartItem);
+    };
+    console.log('Cart item to be added:', cartItem);
+    addItem(cartItem);
   };
 
   // Filter products by category if one is selected
@@ -207,15 +210,18 @@ function CollectionsContent() {
               animate={{ opacity: 1, y: 0 }}
               className="bg-card rounded-lg shadow-lg overflow-hidden border border-border"
             >
-              {/* Product Image/Video */}
+              {/* Media Layer */}
               <div className="relative aspect-square">
                 {product.videoUrl ? (
-                  <iframe
-                    src={product.videoUrl}
-                    className="w-full h-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
+                  <div className="absolute inset-0">
+                    <iframe
+                      src={product.videoUrl}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      style={{ pointerEvents: 'none' }}
+                    />
+                  </div>
                 ) : (
                   <Image
                     src={product.image}
@@ -226,21 +232,34 @@ function CollectionsContent() {
                 )}
               </div>
 
-              {/* Product Info */}
-              <div className="p-4">
-                <h2 className="text-xl font-semibold text-foreground mb-2">
-                  {product.title}
-                </h2>
-                <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                  {product.description}
-                </p>
-                <div className="flex justify-between items-center">
-                  <p className="text-lg font-bold text-foreground">
-                    {product.price.currencyCode} {product.price.amount.toLocaleString()}
+              {/* Content Layer */}
+              <div className="relative bg-card">
+                <div className="p-4">
+                  <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-2">
+                    {product.title}
+                  </h2>
+                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                    {product.description}
                   </p>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p className="text-base sm:text-lg font-bold text-foreground">
+                      {product.price.currencyCode} {product.price.amount.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Button Container */}
+                <div className="p-4 pt-0">
                   <button
-                    onClick={() => handleAddToCart(product)}
-                    className="bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('Add to cart clicked for:', product.title);
+                      handleAddToCart(product);
+                    }}
+                    className="w-full bg-primary text-primary-foreground px-4 py-3 rounded-lg hover:bg-primary/90 active:bg-primary/80 transition-colors text-center touch-manipulation select-none"
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
                   >
                     Add to Cart
                   </button>

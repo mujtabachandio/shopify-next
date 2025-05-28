@@ -42,6 +42,8 @@ function SidebarContent() {
     { icon: FaMale, label: "Men's", value: "mens" },
     { icon: FaChild, label: "Kids Accessories", value: "kids" },
     { icon: FaTag, label: "Deals", value: "deals" },
+    { icon: FaTag, label: "Stitched", value: "stitched" },
+    { icon: FaTag, label: "Unstitched", value: "unstitched" },
   ];
 
   const handleCategoryClick = (category: string) => {
@@ -61,61 +63,62 @@ function SidebarContent() {
   };
 
   return (
-    <div className="p-4">
-      <nav className="space-y-6">
+    <div className="p-2">
+      <nav className="space-y-4">
         {/* Main Navigation */}
         <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-foreground-muted px-4 mb-2">Navigation</h3>
           {menuItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+                className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
                   isActive
                     ? "bg-primary/10 text-primary shadow-sm"
                     : "text-foreground-muted hover:bg-primary/5 hover:text-foreground"
                 }`}
               >
-                <item.icon className="text-xl" />
-                <span className="font-medium">{item.name}</span>
+                <item.icon className="text-lg" />
+                <span className="font-medium text-sm">{item.name}</span>
               </Link>
             );
           })}
         </div>
 
         {/* Categories */}
-        <div className="space-y-2">
-          <div className="flex justify-between items-center px-4 mb-2">
+        <div className="space-y-1">
+          <div className="flex justify-between items-center px-3 mb-2">
             <h3 className="text-sm font-semibold text-foreground-muted">Categories</h3>
             {currentCategory && (
               <button
                 onClick={clearFilter}
-                className="flex items-center space-x-2 text-sm text-primary hover:text-primary/80 transition-colors"
+                className="flex items-center space-x-1.5 text-xs text-primary hover:text-primary/80 transition-colors"
               >
                 <FaFilter className="text-xs" />
-                <span>Clear Filter</span>
+                <span>Clear</span>
               </button>
             )}
           </div>
-          {categories.map((category) => {
-            const isActive = currentCategory === category.value;
-            return (
-              <button
-                key={category.value}
-                onClick={() => handleCategoryClick(category.value)}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                  isActive
-                    ? "bg-primary/10 text-primary shadow-sm"
-                    : "text-foreground-muted hover:bg-primary/5 hover:text-foreground"
-                }`}
-              >
-                <category.icon className="text-xl" />
-                <span className="font-medium">{category.label}</span>
-              </button>
-            );
-          })}
+          <div className="space-y-1">
+            {categories.map((category) => {
+              const isActive = currentCategory === category.value;
+              return (
+                <button
+                  key={category.value}
+                  onClick={() => handleCategoryClick(category.value)}
+                  className={`w-full flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                    isActive
+                      ? "bg-primary/10 text-primary shadow-sm"
+                      : "text-foreground-muted hover:bg-primary/5 hover:text-foreground"
+                  }`}
+                >
+                  <category.icon className="text-lg" />
+                  <span className="font-medium text-sm">{category.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </nav>
     </div>
@@ -137,9 +140,19 @@ export default function Sidebar() {
 
       {/* Desktop Sidebar */}
       <aside className="w-64 bg-background/95 backdrop-blur-sm border-r border-border h-screen sticky top-0 hidden lg:block">
-        <Suspense fallback={<div className="p-4">Loading...</div>}>
-          <SidebarContent />
-        </Suspense>
+        <div className="h-full flex flex-col">
+          {/* Fixed Header */}
+          <div className="flex-shrink-0 p-3 border-b border-border">
+            <h2 className="text-base font-semibold text-foreground">Menu</h2>
+          </div>
+          
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto">
+            <Suspense fallback={<div className="p-4">Loading...</div>}>
+              <SidebarContent />
+            </Suspense>
+          </div>
+        </div>
       </aside>
 
       {/* Mobile Sidebar Overlay */}
@@ -153,9 +166,19 @@ export default function Sidebar() {
           
           {/* Sidebar */}
           <aside className="absolute left-0 top-0 h-full w-64 bg-background/95 backdrop-blur-sm border-r border-border animate-slide-in">
-            <Suspense fallback={<div className="p-4">Loading...</div>}>
-              <SidebarContent />
-            </Suspense>
+            <div className="h-full flex flex-col">
+              {/* Fixed Header */}
+              <div className="flex-shrink-0 p-3 border-b border-border">
+                <h2 className="text-base font-semibold text-foreground">Menu</h2>
+              </div>
+              
+              {/* Scrollable Content */}
+              <div className="flex-1 overflow-y-auto">
+                <Suspense fallback={<div className="p-4">Loading...</div>}>
+                  <SidebarContent />
+                </Suspense>
+              </div>
+            </div>
           </aside>
         </div>
       )}

@@ -99,7 +99,7 @@ export async function POST(request: Request) {
       try {
         // Get the first variant of the product
         const response = await client.request<ProductVariantResponse>(GET_PRODUCT_VARIANT, {
-          id: item.productId
+          id: item.productId.startsWith('gid://') ? item.productId : `gid://shopify/Product/${item.productId}`
         });
 
         console.log('Product variant response:', response);

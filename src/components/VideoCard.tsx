@@ -132,7 +132,7 @@ export default function VideoCard({
         </div>
 
         {/* Bottom Info Section */}
-        <div className="absolute bottom-0 pb-20 left-0 right-0 p-6 bg-gradient-to-t from-black/95 via-black/70 to-transparent">
+        <div className="absolute bottom-0 left-0 right-0 p-6 pb-24 bg-gradient-to-t from-black/95 via-black/70 to-transparent">
           <div className="space-y-4">
             {/* Title and Brand */}
             <div className="flex items-start justify-between">
@@ -148,7 +148,7 @@ export default function VideoCard({
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleAddToCart}
-                  className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center space-x-2 shadow-lg ${
+                  className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center space-x-2 shadow-lg  ${
                     isInCart 
                       ? 'bg-green-500 text-white hover:bg-green-600' 
                       : 'bg-white text-black hover:bg-white/90'
@@ -250,7 +250,7 @@ export default function VideoCard({
       )}
 
       {/* Bottom Info Section */}
-      <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/95 via-black/70 to-transparent">
+      <div className="absolute bottom-0 left-0 right-0 p-6 pb-24 bg-gradient-to-t from-black/95 via-black/70 to-transparent">
         <div className="space-y-4">
           {/* Title and Brand */}
           <div className="flex items-start justify-between">

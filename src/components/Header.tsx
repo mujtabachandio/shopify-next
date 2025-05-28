@@ -40,7 +40,7 @@ export default function Header() {
                 alt="Aneela's Collection"
                 width={40}
                 height={40}
-                className="w-auto h-8"
+                className="w-8 h-8 object-contain"
               />
               <span className="ml-2 text-gray-200 font-semibold">Aneela&apos;s Collection</span>
             </Link>
@@ -165,31 +165,92 @@ export default function Header() {
           isMenuOpen ? 'translate-x-0' : '-translate-x-full'
         } lg:hidden`}
       >
-        <div className="pt-20 px-4">
-          <nav className="space-y-4">
-            {menuItems.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={`block py-3 text-lg font-medium ${iconColor} ${hoverColor} transition-colors`}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                {item.label}
+        <div className="h-full flex flex-col">
+          {/* Header - Fixed */}
+          <div className="flex-shrink-0 flex items-center justify-between p-2.5 border-b border-gray-700">
+            <Link href="/" className="flex items-center" onClick={() => setIsMenuOpen(false)}>
+              <Image 
+                src="/logo.png" 
+                alt="Aneela's Collection" 
+                width={28} 
+                height={28} 
+                className="w-6 h-6 object-contain" 
+              />
+              <span className="ml-2 text-xs text-gray-200 font-semibold">Aneela&apos;s Collection</span>
+            </Link>
+            <button 
+              onClick={() => setIsMenuOpen(false)}
+              className="p-1.5 text-gray-200 hover:text-gray-300 transition-colors"
+            >
+              <FaTimes size={18} />
+            </button>
+          </div>
+
+          {/* Search Bar - Fixed */}
+          <div className="flex-shrink-0 p-2.5 border-b border-gray-700">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search products..."
+                className="w-full bg-gray-800 text-xs text-gray-200 placeholder-gray-400 px-3 py-2 pl-7 rounded-lg border border-gray-700 focus:outline-none focus:ring-1 focus:ring-primary focus:border-transparent"
+              />
+              <FaSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
+            </div>
+          </div>
+
+          {/* Scrollable Content */}
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            {/* Main Navigation */}
+            <nav className="p-2.5 space-y-0.5">
+              <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 px-2">Main Menu</h3>
+              {menuItems.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="flex items-center px-2 py-2 text-xs font-medium text-gray-200 hover:bg-gray-800 rounded-lg transition-colors"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+
+            {/* Additional Links */}
+            <div className="p-2.5 border-t border-gray-700">
+              <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 px-2">Additional Info</h3>
+              {moreMenuItems.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="flex items-center px-2 py-2 text-xs font-medium text-gray-200 hover:bg-gray-800 rounded-lg transition-colors"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <item.icon className="text-sm mr-2" />
+                  <span>{item.label}</span>
+                </Link>
+              ))}
+            </div>
+
+            {/* Extra padding at bottom for better scrolling */}
+            <div className="h-4" />
+          </div>
+
+          {/* Footer - Fixed */}
+          <div className="flex-shrink-0 p-2.5 border-t border-gray-700 bg-gray-900/95">
+            <div className="flex items-center justify-between">
+              <Link href="/account" className="flex items-center text-xs text-gray-200 hover:text-gray-300 transition-colors">
+                <FaUser className="text-sm mr-1.5" />
+                <span>Account</span>
               </Link>
-            ))}
-            <div className="border-t border-gray-700 my-4"></div>
-            {moreMenuItems.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={`flex items-center space-x-3 py-3 text-lg font-medium ${iconColor} ${hoverColor} transition-colors`}
-                onClick={() => setIsMenuOpen(false)}
+              <button
+                onClick={toggleTheme}
+                className="p-1.5 rounded-lg bg-gray-800 text-gray-200 hover:bg-gray-700 transition-colors"
+                aria-label="Toggle theme"
               >
-                <item.icon className="text-lg" />
-                <span>{item.label}</span>
-              </Link>
-            ))}
-          </nav>
+                {theme === 'light' ? <FaMoon className="text-sm" /> : <FaSun className="text-sm" />}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </>

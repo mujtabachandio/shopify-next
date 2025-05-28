@@ -51,21 +51,25 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const addItem = (newItem: CartItem) => {
     console.log('Adding item to cart:', newItem)
-    setItems(currentItems => {
-      const existingItem = currentItems.find(item => item.id === newItem.id)
-      
-      if (existingItem) {
-        console.log('Item already in cart, updating quantity')
-        return currentItems.map(item =>
-          item.id === newItem.id
-            ? { ...item, quantity: item.quantity + newItem.quantity }
-            : item
-        )
-      }
-      
-      console.log('Adding new item to cart')
-      return [...currentItems, newItem]
-    })
+    try {
+      setItems(currentItems => {
+        const existingItem = currentItems.find(item => item.id === newItem.id)
+        
+        if (existingItem) {
+          console.log('Item already in cart, updating quantity')
+          return currentItems.map(item =>
+            item.id === newItem.id
+              ? { ...item, quantity: item.quantity + newItem.quantity }
+              : item
+          )
+        }
+        
+        console.log('Adding new item to cart')
+        return [...currentItems, newItem]
+      })
+    } catch (error) {
+      console.error('Error adding item to cart:', error)
+    }
   }
   
   const removeItem = (id: string) => {
