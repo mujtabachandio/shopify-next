@@ -4,6 +4,14 @@ import { useCart } from "@/context/CartContext";
 import { motion } from "framer-motion";
 import { useState } from "react";
 
+interface CheckoutResponse {
+  success: boolean;
+  checkout?: {
+    webUrl: string;
+  };
+  error?: string;
+}
+
 export default function CheckoutPage() {
   const { items, clearCart } = useCart();
   const [isLoading, setIsLoading] = useState(false);
@@ -25,6 +33,7 @@ export default function CheckoutPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify({
           items: items.map(item => ({
@@ -36,21 +45,16 @@ export default function CheckoutPage() {
         })
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
-      const data = await response.json() as {
-        success: boolean;
-        checkout?: {
-          webUrl: string;
-        };
-        error?: string;
-      };
-      console.log('Response data:', data);
+      console.log('Received response:', response.status, response.statusText);
 
       if (!response.ok) {
-        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Server response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const data: CheckoutResponse = await response.json();
+      console.log('Parsed response data:', data);
 
       if (!data.success) {
         throw new Error(data.error || 'Failed to create checkout');
