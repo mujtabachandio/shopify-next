@@ -11,13 +11,38 @@ interface CartItem {
   };
 }
 
-interface CheckoutResponse {
-  checkoutCreate?: {
-    checkout?: {
+interface CartResponse {
+  cartCreate: {
+    cart?: {
       id: string;
-      webUrl: string;
+      checkoutUrl: string;
+      lines: {
+        edges: Array<{
+          node: {
+            id: string;
+            quantity: number;
+            merchandise: {
+              id: string;
+            };
+          };
+        }>;
+      };
+      cost: {
+        totalAmount: {
+          amount: number;
+          currencyCode: string;
+        };
+        subtotalAmount: {
+          amount: number;
+          currencyCode: string;
+        };
+        totalTaxAmount: {
+          amount: number;
+          currencyCode: string;
+        };
+      };
     };
-    checkoutUserErrors?: Array<{
+    userErrors?: Array<{
       code: string;
       field: string;
       message: string;
@@ -33,14 +58,41 @@ const client = new GraphQLClient('https://tven40-ib.myshopify.com/api/2024-01/gr
   },
 });
 
-const CREATE_CHECKOUT = `
-  mutation checkoutCreate($input: CheckoutCreateInput!) {
-    checkoutCreate(input: $input) {
-      checkout {
+const CREATE_CART = `
+  mutation cartCreate($input: CartInput!) {
+    cartCreate(input: $input) {
+      cart {
         id
-        webUrl
+        checkoutUrl
+        lines(first: 10) {
+          edges {
+            node {
+              id
+              quantity
+              merchandise {
+                ... on ProductVariant {
+                  id
+                }
+              }
+            }
+          }
+        }
+        cost {
+          totalAmount {
+            amount
+            currencyCode
+          }
+          subtotalAmount {
+            amount
+            currencyCode
+          }
+          totalTaxAmount {
+            amount
+            currencyCode
+          }
+        }
       }
-      checkoutUserErrors {
+      userErrors {
         code
         field
         message
@@ -111,30 +163,30 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log('Received order request:', { items, total });
+    console.log('Received cart request:', { items, total });
 
-    // Format line items for Shopify checkout
+    // Format line items for Shopify cart
     const lineItems = items.map((item: CartItem) => ({
       quantity: item.quantity,
-      variantId: item.productId.startsWith('gid://') ? item.productId : `gid://shopify/ProductVariant/${item.productId.split('/').pop()}`
+      merchandiseId: item.productId.startsWith('gid://') ? item.productId : `gid://shopify/ProductVariant/${item.productId.split('/').pop()}`
     }));
 
     console.log('Formatted line items:', lineItems);
 
-    // Create checkout in Shopify
-    const response = await client.request<CheckoutResponse>(CREATE_CHECKOUT, {
+    // Create cart in Shopify
+    const response = await client.request<CartResponse>(CREATE_CART, {
       input: {
-        lineItems
+        lines: lineItems
       }
     });
 
-    console.log('Checkout response:', response);
+    console.log('Cart response:', response);
 
-    const checkoutCreate = response.checkoutCreate;
-    if (!checkoutCreate) {
-      console.error('No checkout response from Shopify');
+    const cartCreate = response.cartCreate;
+    if (!cartCreate) {
+      console.error('No cart response from Shopify');
       return new NextResponse(
-        JSON.stringify({ error: 'Failed to create checkout - no response from Shopify' }),
+        JSON.stringify({ error: 'Failed to create cart - no response from Shopify' }),
         { 
           status: 500,
           headers: {
@@ -145,9 +197,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const userErrors = checkoutCreate.checkoutUserErrors || [];
+    const userErrors = cartCreate.userErrors || [];
     if (userErrors.length > 0) {
-      console.error('Checkout creation errors:', userErrors);
+      console.error('Cart creation errors:', userErrors);
       return new NextResponse(
         JSON.stringify({ error: userErrors.map((e: { message: string }) => e.message).join(', ') }),
         { 
@@ -160,8 +212,8 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!checkoutCreate.checkout?.webUrl) {
-      console.error('No checkout URL in response:', checkoutCreate);
+    if (!cartCreate.cart?.checkoutUrl) {
+      console.error('No checkout URL in response:', cartCreate);
       return new NextResponse(
         JSON.stringify({ error: 'No checkout URL received from Shopify' }),
         { 
@@ -177,7 +229,7 @@ export async function POST(request: Request) {
     return new NextResponse(
       JSON.stringify({
         success: true,
-        checkout: checkoutCreate.checkout
+        cart: cartCreate.cart
       }),
       {
         headers: {
@@ -187,7 +239,7 @@ export async function POST(request: Request) {
       }
     );
   } catch (error) {
-    console.error('Error creating checkout:', error);
+    console.error('Error creating cart:', error);
     // Log the full error details
     if (error instanceof Error) {
       console.error('Error details:', {
@@ -197,7 +249,7 @@ export async function POST(request: Request) {
       });
     }
     return new NextResponse(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to create checkout' }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to create cart' }),
       { 
         status: 500,
         headers: {

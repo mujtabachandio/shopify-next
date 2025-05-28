@@ -14,17 +14,17 @@ export default function CheckoutPage() {
     setError(null);
 
     try {
-      // Format items for Shopify checkout
+      // Format items for Shopify cart
       const formattedItems = items.map(item => ({
-        productId: item.id.startsWith('gid://') ? item.id : `gid://shopify/Product/${item.id.split('/').pop()}`,
+        productId: item.id.startsWith('gid://') ? item.id : `gid://shopify/ProductVariant/${item.id.split('/').pop()}`,
         title: item.title,
         quantity: item.quantity,
         price: item.price
       }));
 
-      console.log('Sending checkout request with items:', formattedItems);
+      console.log('Sending cart request with items:', formattedItems);
 
-      // Create a checkout in Shopify
+      // Create a cart in Shopify
       const response = await fetch('/api/orders/', {
         method: 'POST',
         headers: {
@@ -55,24 +55,24 @@ export default function CheckoutPage() {
           statusText: response.statusText,
           data
         });
-        throw new Error(data.error || 'Failed to create checkout');
+        throw new Error(data.error || 'Failed to create cart');
       }
 
-      if (!data.checkout?.webUrl) {
+      if (!data.cart?.checkoutUrl) {
         console.error('No checkout URL in response:', data);
         throw new Error('No checkout URL received from server');
       }
 
-      console.log('Checkout created:', data);
+      console.log('Cart created:', data);
       
-      // Clear the cart after successful checkout creation
+      // Clear the cart after successful cart creation
       clearCart();
       
       // Redirect to Shopify checkout
-      window.location.href = data.checkout.webUrl;
+      window.location.href = data.cart.checkoutUrl;
     } catch (err) {
-      console.error('Checkout error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create checkout. Please try again.');
+      console.error('Cart error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create cart. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -131,7 +131,7 @@ export default function CheckoutPage() {
                   : 'bg-primary text-primary-foreground hover:bg-primary/90'
               }`}
             >
-              {isLoading ? 'Creating Checkout...' : 'Proceed to Checkout'}
+              {isLoading ? 'Creating Cart...' : 'Proceed to Checkout'}
             </button>
           </div>
         </motion.div>
