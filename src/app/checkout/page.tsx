@@ -31,6 +31,7 @@ export default function CheckoutPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify({
           items: items.map(item => ({
@@ -38,17 +39,20 @@ export default function CheckoutPage() {
             title: item.title,
             price: item.price,
             quantity: item.quantity
-          })),
-          total: items.reduce((sum, item) => sum + (item.price.amount * item.quantity), 0)
+          }))
         })
       });
 
-      const data: CheckoutResponse = await response.json().catch(() => {
-        throw new Error('Failed to parse response from server');
-      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Server response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+      const data: CheckoutResponse = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to create checkout');
       }
 
       if (!data.checkout?.webUrl) {
