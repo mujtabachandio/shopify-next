@@ -4,14 +4,6 @@ import { useCart } from "@/context/CartContext";
 import { motion } from "framer-motion";
 import { useState } from "react";
 
-interface CheckoutResponse {
-  success: boolean;
-  checkout?: {
-    webUrl: string;
-  };
-  error?: string;
-}
-
 export default function CheckoutPage() {
   const { items, clearCart } = useCart();
   const [isLoading, setIsLoading] = useState(false);
@@ -47,7 +39,13 @@ export default function CheckoutPage() {
       console.log('Response status:', response.status);
       console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
-      const data = await response.json();
+      const data = await response.json() as {
+        success: boolean;
+        checkout?: {
+          webUrl: string;
+        };
+        error?: string;
+      };
       console.log('Response data:', data);
 
       if (!response.ok) {
