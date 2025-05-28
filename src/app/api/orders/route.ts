@@ -1,89 +1,14 @@
 import { NextResponse } from 'next/server';
-import { GraphQLClient } from 'graphql-request';
-
-interface ProductVariantResponse {
-  product?: {
-    id: string;
-    title: string;
-    variants: {
-      edges: Array<{
-        node: {
-          id: string;
-          title: string;
-          price: {
-            amount: string;
-            currencyCode: string;
-          };
-        };
-      }>;
-    };
-  };
-}
-
-interface CheckoutResponse {
-  checkoutCreate?: {
-    checkout?: {
-      id: string;
-      webUrl: string;
-    };
-    checkoutUserErrors?: Array<{
-      code: string;
-      field: string;
-      message: string;
-    }>;
-  };
-}
 
 interface CartItem {
   productId: string;
   title: string;
   quantity: number;
+  price: {
+    amount: number;
+    currencyCode: string;
+  };
 }
-
-// Initialize Shopify Storefront GraphQL client
-const client = new GraphQLClient('https://tven40-ib.myshopify.com/api/2024-01/graphql.json', {
-  headers: {
-    'X-Shopify-Storefront-Access-Token': 'c72eea1c6de28db7d3f0fa22f0cf86fa',
-    'Content-Type': 'application/json',
-  },
-});
-
-const GET_PRODUCT_VARIANT = `
-  query getProductVariant($id: ID!) {
-    product(id: $id) {
-      id
-      title
-      variants(first: 1) {
-        edges {
-          node {
-            id
-            title
-            price {
-              amount
-              currencyCode
-            }
-          }
-        }
-      }
-    }
-  }
-`;
-
-const CREATE_CHECKOUT = `
-  mutation checkoutCreate($input: CheckoutCreateInput!) {
-    checkoutCreate(input: $input) {
-      checkout {
-        id
-        webUrl
-      }
-      checkoutUserErrors {
-        code
-        field
-        message
-      }
-    }
-  }
-`;
 
 // Add CORS headers
 const corsHeaders = {
@@ -149,65 +74,42 @@ export async function POST(request: Request) {
 
     console.log('Received order request:', { items, total });
 
-    // Get the first variant ID for each product
-    const lineItems = await Promise.all(items.map(async (item: CartItem) => {
-      console.log('Processing item:', item);
-
-      if (!item.productId) {
-        throw new Error(`Missing product ID for item: ${item.title}`);
-      }
-
-      try {
-        // Get the first variant of the product
-        const response = await client.request<ProductVariantResponse>(GET_PRODUCT_VARIANT, {
-          id: item.productId
-        });
-
-        console.log('Product variant response:', response);
-
-        const variant = response.product?.variants?.edges[0]?.node;
-        if (!variant) {
-          throw new Error(`No variant found for product: ${item.title}`);
-        }
-
-        console.log('Found variant:', variant);
-
-        return {
-          quantity: item.quantity,
-          variantId: variant.id
-        };
-      } catch (error) {
-        console.error('Error processing item:', error);
-        // Log the full error details
-        if (error instanceof Error) {
-          console.error('Error details:', {
-            message: error.message,
-            stack: error.stack,
-            name: error.name
-          });
-        }
-        throw new Error(`Failed to process item ${item.title}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
+    // Format line items for Shopify Admin API
+    const lineItems = items.map((item: CartItem) => ({
+      title: item.title,
+      quantity: item.quantity,
+      price: item.price.amount,
+      // Extract variant ID from the product ID
+      variant_id: item.productId.split('/').pop()
     }));
 
-    console.log('Prepared line items:', lineItems);
+    console.log('Formatted line items:', lineItems);
 
-    // Create checkout in Shopify
-    const response = await client.request<CheckoutResponse>(CREATE_CHECKOUT, {
-      input: {
-        lineItems
-      }
+    // Create order in Shopify using Admin API
+    const response = await fetch('https://tven40-ib.myshopify.com/admin/api/2024-01/orders.json', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': 'c72eea1c6de28db7d3f0fa22f0cf86fa',
+      },
+      body: JSON.stringify({
+        order: {
+          line_items: lineItems,
+          financial_status: 'pending',
+          send_receipt: false,
+          send_fulfillment_receipt: false,
+        }
+      })
     });
 
-    console.log('Checkout response:', response);
+    const responseData = await response.json();
 
-    const checkoutCreate = response.checkoutCreate;
-    if (!checkoutCreate) {
-      console.error('No checkout response from Shopify');
+    if (!response.ok) {
+      console.error('Shopify API error:', responseData);
       return new NextResponse(
-        JSON.stringify({ error: 'Failed to create checkout - no response from Shopify' }),
+        JSON.stringify({ error: 'Failed to create order in Shopify' }),
         { 
-          status: 500,
+          status: response.status,
           headers: {
             ...corsHeaders,
             'Content-Type': 'application/json',
@@ -216,39 +118,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const userErrors = checkoutCreate.checkoutUserErrors || [];
-    if (userErrors.length > 0) {
-      console.error('Checkout creation errors:', userErrors);
-      return new NextResponse(
-        JSON.stringify({ error: userErrors.map((e: { message: string }) => e.message).join(', ') }),
-        { 
-          status: 400,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          }
-        }
-      );
-    }
-
-    if (!checkoutCreate.checkout?.webUrl) {
-      console.error('No checkout URL in response:', checkoutCreate);
-      return new NextResponse(
-        JSON.stringify({ error: 'No checkout URL received from Shopify' }),
-        { 
-          status: 500,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          }
-        }
-      );
-    }
+    console.log('Order created in Shopify:', responseData);
 
     return new NextResponse(
       JSON.stringify({
         success: true,
-        checkout: checkoutCreate.checkout
+        order: responseData.order
       }),
       {
         headers: {
@@ -258,7 +133,7 @@ export async function POST(request: Request) {
       }
     );
   } catch (error) {
-    console.error('Error creating checkout:', error);
+    console.error('Error creating order:', error);
     // Log the full error details
     if (error instanceof Error) {
       console.error('Error details:', {
@@ -268,7 +143,7 @@ export async function POST(request: Request) {
       });
     }
     return new NextResponse(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to create checkout' }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to create order' }),
       { 
         status: 500,
         headers: {
