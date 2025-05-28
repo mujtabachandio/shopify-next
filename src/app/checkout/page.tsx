@@ -33,7 +33,6 @@ export default function CheckoutPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
         },
         body: JSON.stringify({
           items: items.map(item => ({
@@ -45,16 +44,15 @@ export default function CheckoutPage() {
         })
       });
 
-      console.log('Received response:', response.status, response.statusText);
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+      const data = await response.json();
+      console.log('Response data:', data);
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Server response:', errorText);
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(data.error || `HTTP error! status: ${response.status}`);
       }
-
-      const data: CheckoutResponse = await response.json();
-      console.log('Parsed response data:', data);
 
       if (!data.success) {
         throw new Error(data.error || 'Failed to create checkout');

@@ -213,4 +213,5 @@ export async function POST(request: Request) {
 }
 
 // Add configuration for the API route
-export const runtime = 'edge'; 
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic'; 
