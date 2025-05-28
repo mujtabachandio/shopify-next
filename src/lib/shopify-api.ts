@@ -35,7 +35,7 @@ const getClient = () => {
 const client = getClient();
 
 // Add a wrapper function for GraphQL requests with better error handling
-const makeRequest = async <T>(query: string, variables?: any): Promise<T> => {
+const makeRequest = async <T, V extends Record<string, unknown>>(query: string, variables?: V): Promise<T> => {
   try {
     console.log('Making GraphQL request:', {
       query: query.split('\n')[0] + '...', // Log first line of query
@@ -402,13 +402,30 @@ interface GraphQLMediaNode {
   };
 }
 
+interface CollectionsVariables {
+  first: number;
+  after?: string;
+}
 
+interface ProductVariables {
+  handle: string;
+}
 
+interface ProductsByCollectionVariables {
+  handle: string;
+  first: number;
+  after?: string;
+}
+
+interface AllProductsVariables {
+  first: number;
+  after?: string | null;
+}
 
 export async function getCollections(first: number = 5, after?: string): Promise<CollectionsResponse> {
   try {
     console.log('Fetching collections with params:', { first, after });
-    const response = await makeRequest<GraphQLResponse>(GET_COLLECTIONS, { first, after });
+    const response = await makeRequest<GraphQLResponse, CollectionsVariables>(GET_COLLECTIONS, { first, after });
     
     if (!response.collections?.edges) {
       console.error('Invalid collections response:', response);
@@ -462,7 +479,7 @@ export async function getCollections(first: number = 5, after?: string): Promise
 
 export async function getProduct(handle: string): Promise<Product | null> {
   try {
-    const response = await client.request(GET_PRODUCT, { handle }) as GraphQLProductResponse;
+    const response = await makeRequest<GraphQLProductResponse, ProductVariables>(GET_PRODUCT, { handle });
     const product = response.productByHandle;
     
     if (!product) return null;
@@ -503,11 +520,10 @@ export async function getProductsByCollection(
   endCursor?: string;
 }> {
   try {
-    const response = await client.request(GET_PRODUCTS_BY_COLLECTION, {
-      handle,
-      first,
-      after,
-    }) as GraphQLCollectionResponse;
+    const response = await makeRequest<GraphQLCollectionResponse, ProductsByCollectionVariables>(
+      GET_PRODUCTS_BY_COLLECTION,
+      { handle, first, after }
+    );
 
     const collection = response.collectionByHandle;
     if (!collection) {
@@ -553,10 +569,10 @@ export async function getAllProducts(first: number = 50, after?: string): Promis
   try {
     console.log('Fetching all products with params:', { first, after });
     
-    const response = await client.request(GET_ALL_PRODUCTS, {
-      first,
-      after: after || null,
-    }) as GraphQLProductsResponse;
+    const response = await makeRequest<GraphQLProductsResponse, AllProductsVariables>(
+      GET_ALL_PRODUCTS,
+      { first, after: after || null }
+    );
 
     if (!response.products?.edges) {
       console.error('No products found in response:', response);
