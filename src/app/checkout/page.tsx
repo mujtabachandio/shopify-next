@@ -26,6 +26,8 @@ export default function CheckoutPage() {
         throw new Error('Cart is empty');
       }
 
+      console.log('Starting checkout process with items:', items);
+
       // Create a checkout in Shopify
       const response = await fetch('/api/orders', {
         method: 'POST',
@@ -43,6 +45,8 @@ export default function CheckoutPage() {
         })
       });
 
+      console.log('Received response:', response.status, response.statusText);
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Server response:', errorText);
@@ -50,6 +54,7 @@ export default function CheckoutPage() {
       }
 
       const data: CheckoutResponse = await response.json();
+      console.log('Parsed response data:', data);
 
       if (!data.success) {
         throw new Error(data.error || 'Failed to create checkout');
