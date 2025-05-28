@@ -14,6 +14,15 @@ export default function CheckoutPage() {
     setError(null);
 
     try {
+      // Format items for Shopify checkout
+      const formattedItems = items.map(item => ({
+        productId: item.id.startsWith('gid://') ? item.id : `gid://shopify/Product/${item.id.split('/').pop()}`,
+        title: item.title,
+        quantity: item.quantity
+      }));
+
+      console.log('Sending checkout request with items:', formattedItems);
+
       // Create a checkout in Shopify
       const response = await fetch('/api/orders', {
         method: 'POST',
@@ -21,19 +30,18 @@ export default function CheckoutPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          items: items.map(item => ({
-            productId: item.id,
-            title: item.title,
-            price: item.price,
-            quantity: item.quantity
-          })),
+          items: formattedItems,
           total: items.reduce((sum, item) => sum + (item.price.amount * item.quantity), 0)
         })
       });
 
+      // First get the raw text response
+      const text = await response.text();
+      console.log('Raw response:', text);
+
       let data;
       try {
-        data = await response.json();
+        data = JSON.parse(text);
       } catch (jsonError) {
         console.error('Error parsing response:', jsonError);
         throw new Error('Invalid response from server. Please try again.');
