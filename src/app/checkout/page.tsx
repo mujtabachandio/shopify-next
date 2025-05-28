@@ -4,79 +4,53 @@ import { useCart } from "@/context/CartContext";
 import { motion } from "framer-motion";
 import { useState } from "react";
 
-interface OrderResponse {
-  success: boolean;
-  order?: {
-    id: string;
-    orderNumber: string;
-    totalPrice: string;
-    status: string;
-  };
-  error?: string;
-}
-
 export default function CheckoutPage() {
   const { items, clearCart } = useCart();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [orderSuccess, setOrderSuccess] = useState<OrderResponse['order'] | null>(null);
 
-  const handleOrder = async () => {
+  const handleCheckout = async () => {
     setIsLoading(true);
     setError(null);
-    setOrderSuccess(null);
 
     try {
-      if (!items || items.length === 0) {
-        throw new Error('Cart is empty');
-      }
-
-      console.log('Starting order process with items:', items);
-
-      // Format the request body
-      const requestBody = {
-        items: items.map(item => ({
-          productId: item.id,
-          quantity: item.quantity
-        }))
-      };
-
-      console.log('Sending request with body:', requestBody);
-
+      // Create a checkout in Shopify
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify({
+          items: items.map(item => ({
+            productId: item.id,
+            title: item.title,
+            price: item.price,
+            quantity: item.quantity
+          })),
+          total: items.reduce((sum, item) => sum + (item.price.amount * item.quantity), 0)
+        })
       });
 
-      console.log('Received response:', response.status, response.statusText);
+      const data = await response.json();
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Server response:', errorText);
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(data.error || 'Failed to create checkout');
       }
 
-      const data: OrderResponse = await response.json();
-      console.log('Parsed response data:', data);
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to create order');
-      }
-
-      if (!data.order) {
-        throw new Error('No order data received from server');
-      }
+      console.log('Checkout created:', data);
       
-      // Clear the cart after successful order creation
+      // Clear the cart after successful checkout creation
       clearCart();
-      setOrderSuccess(data.order);
+      
+      // Redirect to Shopify checkout
+      if (data.checkout?.webUrl) {
+        window.location.href = data.checkout.webUrl;
+      } else {
+        throw new Error('No checkout URL received');
+      }
     } catch (err) {
-      console.error('Order error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create order');
+      console.error('Checkout error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create checkout');
     } finally {
       setIsLoading(false);
     }
@@ -125,19 +99,9 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            {/* Success Message */}
-            {orderSuccess && (
-              <div className="mb-6 p-4 bg-green-100 border border-green-400 rounded-md">
-                <h3 className="text-lg font-semibold text-green-800 mb-2">Order Created Successfully!</h3>
-                <p className="text-green-700">Order Number: {orderSuccess.orderNumber}</p>
-                <p className="text-green-700">Total: {orderSuccess.totalPrice}</p>
-                <p className="text-green-700">Status: {orderSuccess.status}</p>
-              </div>
-            )}
-
             {/* Submit Order Button */}
             <button
-              onClick={handleOrder}
+              onClick={handleCheckout}
               disabled={isLoading || items.length === 0}
               className={`w-full py-3 px-4 rounded-lg font-medium transition-all ${
                 isLoading || items.length === 0
@@ -145,17 +109,7 @@ export default function CheckoutPage() {
                   : 'bg-primary text-primary-foreground hover:bg-primary/90'
               }`}
             >
-              {isLoading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Creating Order...
-                </span>
-              ) : (
-                'Place Order'
-              )}
+              {isLoading ? 'Creating Checkout...' : 'Proceed to Checkout'}
             </button>
           </div>
         </motion.div>
