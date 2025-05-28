@@ -35,7 +35,7 @@ const getClient = () => {
 const client = getClient();
 
 // Add a wrapper function for GraphQL requests with better error handling
-const makeRequest = async <T, V extends Record<string, unknown>>(query: string, variables?: V): Promise<T> => {
+const makeRequest = async <T>(query: string, variables?: Record<string, unknown>): Promise<T> => {
   try {
     console.log('Making GraphQL request:', {
       query: query.split('\n')[0] + '...', // Log first line of query
@@ -425,7 +425,7 @@ interface AllProductsVariables {
 export async function getCollections(first: number = 5, after?: string): Promise<CollectionsResponse> {
   try {
     console.log('Fetching collections with params:', { first, after });
-    const response = await makeRequest<GraphQLResponse, CollectionsVariables>(GET_COLLECTIONS, { first, after });
+    const response = await makeRequest<GraphQLResponse>(GET_COLLECTIONS, { first, after });
     
     if (!response.collections?.edges) {
       console.error('Invalid collections response:', response);
@@ -479,7 +479,7 @@ export async function getCollections(first: number = 5, after?: string): Promise
 
 export async function getProduct(handle: string): Promise<Product | null> {
   try {
-    const response = await makeRequest<GraphQLProductResponse, ProductVariables>(GET_PRODUCT, { handle });
+    const response = await makeRequest<GraphQLProductResponse>(GET_PRODUCT, { handle });
     const product = response.productByHandle;
     
     if (!product) return null;
@@ -520,7 +520,7 @@ export async function getProductsByCollection(
   endCursor?: string;
 }> {
   try {
-    const response = await makeRequest<GraphQLCollectionResponse, ProductsByCollectionVariables>(
+    const response = await makeRequest<GraphQLCollectionResponse>(
       GET_PRODUCTS_BY_COLLECTION,
       { handle, first, after }
     );
@@ -569,7 +569,7 @@ export async function getAllProducts(first: number = 50, after?: string): Promis
   try {
     console.log('Fetching all products with params:', { first, after });
     
-    const response = await makeRequest<GraphQLProductsResponse, AllProductsVariables>(
+    const response = await makeRequest<GraphQLProductsResponse>(
       GET_ALL_PRODUCTS,
       { first, after: after || null }
     );
