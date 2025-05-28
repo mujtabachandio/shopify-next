@@ -14,7 +14,7 @@ export default function CheckoutPage() {
     setError(null);
 
     try {
-      // Format items for Shopify order
+      // Format items for Shopify checkout
       const formattedItems = items.map(item => ({
         productId: item.id.startsWith('gid://') ? item.id : `gid://shopify/Product/${item.id.split('/').pop()}`,
         title: item.title,
@@ -22,9 +22,9 @@ export default function CheckoutPage() {
         price: item.price
       }));
 
-      console.log('Sending order request with items:', formattedItems);
+      console.log('Sending checkout request with items:', formattedItems);
 
-      // Create an order in Shopify
+      // Create a checkout in Shopify
       const response = await fetch('/api/orders/', {
         method: 'POST',
         headers: {
@@ -55,27 +55,24 @@ export default function CheckoutPage() {
           statusText: response.statusText,
           data
         });
-        throw new Error(data.error || 'Failed to create order');
+        throw new Error(data.error || 'Failed to create checkout');
       }
 
-      if (!data.order) {
-        console.error('No order in response:', data);
-        throw new Error('No order received from server');
+      if (!data.checkout?.webUrl) {
+        console.error('No checkout URL in response:', data);
+        throw new Error('No checkout URL received from server');
       }
 
-      console.log('Order created:', data);
+      console.log('Checkout created:', data);
       
-      // Clear the cart after successful order creation
+      // Clear the cart after successful checkout creation
       clearCart();
       
-      // Show success message
-      alert('Order created successfully! You will receive an email confirmation shortly.');
-      
-      // Redirect to home page
-      window.location.href = '/';
+      // Redirect to Shopify checkout
+      window.location.href = data.checkout.webUrl;
     } catch (err) {
-      console.error('Order error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create order. Please try again.');
+      console.error('Checkout error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create checkout. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -134,7 +131,7 @@ export default function CheckoutPage() {
                   : 'bg-primary text-primary-foreground hover:bg-primary/90'
               }`}
             >
-              {isLoading ? 'Creating Order...' : 'Place Order'}
+              {isLoading ? 'Creating Checkout...' : 'Proceed to Checkout'}
             </button>
           </div>
         </motion.div>

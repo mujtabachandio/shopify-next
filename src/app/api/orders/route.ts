@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { GraphQLClient } from 'graphql-request';
 
 interface CartItem {
   productId: string;
@@ -9,6 +10,44 @@ interface CartItem {
     currencyCode: string;
   };
 }
+
+interface CheckoutResponse {
+  checkoutCreate?: {
+    checkout?: {
+      id: string;
+      webUrl: string;
+    };
+    checkoutUserErrors?: Array<{
+      code: string;
+      field: string;
+      message: string;
+    }>;
+  };
+}
+
+// Initialize Shopify Storefront GraphQL client
+const client = new GraphQLClient('https://tven40-ib.myshopify.com/api/2024-01/graphql.json', {
+  headers: {
+    'X-Shopify-Storefront-Access-Token': 'c72eea1c6de28db7d3f0fa22f0cf86fa',
+    'Content-Type': 'application/json',
+  },
+});
+
+const CREATE_CHECKOUT = `
+  mutation checkoutCreate($input: CheckoutCreateInput!) {
+    checkoutCreate(input: $input) {
+      checkout {
+        id
+        webUrl
+      }
+      checkoutUserErrors {
+        code
+        field
+        message
+      }
+    }
+  }
+`;
 
 // Add CORS headers
 const corsHeaders = {
@@ -74,42 +113,30 @@ export async function POST(request: Request) {
 
     console.log('Received order request:', { items, total });
 
-    // Format line items for Shopify Admin API
+    // Format line items for Shopify checkout
     const lineItems = items.map((item: CartItem) => ({
-      title: item.title,
       quantity: item.quantity,
-      price: item.price.amount,
-      // Extract variant ID from the product ID
-      variant_id: item.productId.split('/').pop()
+      variantId: item.productId.startsWith('gid://') ? item.productId : `gid://shopify/ProductVariant/${item.productId.split('/').pop()}`
     }));
 
     console.log('Formatted line items:', lineItems);
 
-    // Create order in Shopify using Admin API
-    const response = await fetch('https://tven40-ib.myshopify.com/admin/api/2024-01/orders.json', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Shopify-Access-Token': 'c72eea1c6de28db7d3f0fa22f0cf86fa',
-      },
-      body: JSON.stringify({
-        order: {
-          line_items: lineItems,
-          financial_status: 'pending',
-          send_receipt: false,
-          send_fulfillment_receipt: false,
-        }
-      })
+    // Create checkout in Shopify
+    const response = await client.request<CheckoutResponse>(CREATE_CHECKOUT, {
+      input: {
+        lineItems
+      }
     });
 
-    const responseData = await response.json();
+    console.log('Checkout response:', response);
 
-    if (!response.ok) {
-      console.error('Shopify API error:', responseData);
+    const checkoutCreate = response.checkoutCreate;
+    if (!checkoutCreate) {
+      console.error('No checkout response from Shopify');
       return new NextResponse(
-        JSON.stringify({ error: 'Failed to create order in Shopify' }),
+        JSON.stringify({ error: 'Failed to create checkout - no response from Shopify' }),
         { 
-          status: response.status,
+          status: 500,
           headers: {
             ...corsHeaders,
             'Content-Type': 'application/json',
@@ -118,12 +145,39 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log('Order created in Shopify:', responseData);
+    const userErrors = checkoutCreate.checkoutUserErrors || [];
+    if (userErrors.length > 0) {
+      console.error('Checkout creation errors:', userErrors);
+      return new NextResponse(
+        JSON.stringify({ error: userErrors.map((e: { message: string }) => e.message).join(', ') }),
+        { 
+          status: 400,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+    }
+
+    if (!checkoutCreate.checkout?.webUrl) {
+      console.error('No checkout URL in response:', checkoutCreate);
+      return new NextResponse(
+        JSON.stringify({ error: 'No checkout URL received from Shopify' }),
+        { 
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+    }
 
     return new NextResponse(
       JSON.stringify({
         success: true,
-        order: responseData.order
+        checkout: checkoutCreate.checkout
       }),
       {
         headers: {
@@ -133,7 +187,7 @@ export async function POST(request: Request) {
       }
     );
   } catch (error) {
-    console.error('Error creating order:', error);
+    console.error('Error creating checkout:', error);
     // Log the full error details
     if (error instanceof Error) {
       console.error('Error details:', {
@@ -143,7 +197,7 @@ export async function POST(request: Request) {
       });
     }
     return new NextResponse(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to create order' }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to create checkout' }),
       { 
         status: 500,
         headers: {
