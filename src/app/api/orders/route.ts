@@ -66,23 +66,23 @@ const client = new GraphQLClient('https://tven40-ib.myshopify.com/api/2024-01/gr
   },
 });
 
-const GET_PRODUCT_VARIANT = `
-  query getProductVariant($id: ID!) {
-    productVariant(id: $id) {
-      id
-      title
-      price {
-        amount
-        currencyCode
-      }
-      product {
-        id
-        title
-        publishedAt
-      }
-    }
-  }
-`;
+// const GET_PRODUCT_VARIANT = `
+//   query getProductVariant($id: ID!) {
+//     productVariant(id: $id) {
+//       id
+//       title
+//       price {
+//         amount
+//         currencyCode
+//       }
+//       product {
+//         id
+//         title
+//         publishedAt
+//       }
+//     }
+//   }
+// `;
 
 const CREATE_CART = `
   mutation cartCreate($input: CartInput!) {
