@@ -2,14 +2,18 @@
 
 import { useCart } from "@/context/CartContext";
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function CheckoutPage() {
-  const { items, clearCart } = useCart();
+export const dynamic = 'force-dynamic';
+
+function CheckoutContent() {
+  const { items } = useCart();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const cartId = searchParams.get('cartId');
 
   // Redirect if cart is empty
   useEffect(() => {
@@ -18,70 +22,120 @@ export default function CheckoutPage() {
     }
   }, [items, router]);
 
-  const handleCheckout = async () => {
-    if (items.length === 0) {
-      setError('Your cart is empty');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Create a checkout in Shopify
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          items: items.map(item => ({
-            productId: item.id,
-            title: item.title,
-            price: item.price,
-            quantity: item.quantity
-          })),
-          total: items.reduce((sum, item) => sum + (item.price.amount * item.quantity), 0),
-          cartId: localStorage.getItem('cartId') // Include cart ID if available
-        })
-      });
-
-      // Check if response is ok before trying to parse JSON
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Server response:', errorText);
-        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+  useEffect(() => {
+    const processCheckout = async () => {
+      if (!cartId) {
+        setError('No cart ID provided');
+        return;
       }
 
-      let data;
+      setIsLoading(true);
+      setError(null);
+
       try {
-        data = await response.json();
-      } catch (jsonError) {
-        console.error('Error parsing response:', jsonError);
-        throw new Error('Invalid response from server. Please try again.');
-      }
+        // First, get the cart details
+        console.log('Fetching cart details for cartId:', cartId);
+        const cartResponse = await fetch(`/api/orders?cartId=${cartId}`);
+        
+        if (!cartResponse.ok) {
+          const errorText = await cartResponse.text();
+          console.error('Cart fetch error:', {
+            status: cartResponse.status,
+            statusText: cartResponse.statusText,
+            body: errorText
+          });
+          throw new Error(`Failed to fetch cart: ${cartResponse.status} ${cartResponse.statusText}`);
+        }
 
-      if (!data.checkout?.webUrl) {
-        throw new Error('No checkout URL received from server');
-      }
+        const cartData = await cartResponse.json();
+        console.log('Cart data received:', cartData);
 
-      console.log('Checkout created:', data);
-      
-      // Clear the cart after successful checkout creation
-      clearCart();
-      
-      // Redirect to Shopify checkout
-      window.location.href = data.checkout.webUrl;
-    } catch (err) {
-      console.error('Checkout error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create checkout. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        if (!cartData || !cartData.lines || !cartData.lines.edges) {
+          throw new Error('Invalid cart data received');
+        }
+
+        // Prepare the order data
+        const orderData = {
+          items: cartData.lines.edges.map((edge: { node: { merchandise: { product: { id: string; title: string }; }; quantity: number; cost: { totalAmount: { amount: string; }; }; }; }) => ({
+            productId: edge.node.merchandise.product.id,
+            title: edge.node.merchandise.product.title,
+            quantity: edge.node.quantity,
+            price: edge.node.cost.totalAmount.amount
+          })),
+          total: cartData.cost.totalAmount.amount,
+          cartId: cartId
+        };
+
+        console.log('Sending order data:', orderData);
+
+        // Create the checkout
+        const checkoutResponse = await fetch('/api/orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(orderData)
+        });
+
+        if (!checkoutResponse.ok) {
+          const errorText = await checkoutResponse.text();
+          console.error('Checkout error:', {
+            status: checkoutResponse.status,
+            statusText: checkoutResponse.statusText,
+            body: errorText
+          });
+          throw new Error(`Checkout failed: ${checkoutResponse.status} ${checkoutResponse.statusText}`);
+        }
+
+        const checkoutData = await checkoutResponse.json();
+        console.log('Checkout response:', checkoutData);
+
+        if (!checkoutData.success || !checkoutData.checkout?.webUrl) {
+          throw new Error('Invalid checkout response received');
+        }
+
+        // Redirect to Shopify checkout
+        window.location.href = checkoutData.checkout.webUrl;
+      } catch (err) {
+        console.error('Checkout process error:', err);
+        setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    processCheckout();
+  }, [cartId]);
 
   const total = items.reduce((sum, item) => sum + (item.price.amount * item.quantity), 0);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-lg">Processing your order...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 text-xl mb-4">Error</div>
+          <p className="text-gray-700">{error}</p>
+          <button
+            onClick={() => router.push('/cart')}
+            className="mt-4 px-4 py-2 bg-gray-900 text-white rounded hover:bg-gray-800"
+          >
+            Return to Cart
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return null; // Will be redirected by useEffect
@@ -130,19 +184,29 @@ export default function CheckoutPage() {
 
             {/* Submit Order Button */}
             <button
-              onClick={handleCheckout}
-              disabled={isLoading || items.length === 0}
-              className={`w-full py-3 px-4 rounded-lg font-medium transition-all ${
-                isLoading || items.length === 0
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
-              }`}
+              onClick={() => router.push('/cart')}
+              className="w-full py-3 px-4 rounded-lg font-medium transition-all bg-gray-400 cursor-not-allowed"
             >
-              {isLoading ? 'Creating Checkout...' : 'Proceed to Checkout'}
+              Return to Cart
             </button>
           </div>
         </motion.div>
       </div>
     </div>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-lg">Loading...</p>
+        </div>
+      </div>
+    }>
+      <CheckoutContent />
+    </Suspense>
   );
 } 
