@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Only enable static export in production
-  output: process.env.NODE_ENV === 'production' ? 'export' : undefined,
+  // Remove static export for now as it's causing issues with dynamic routes
+  // output: process.env.NODE_ENV === 'production' ? 'export' : undefined,
   images: {
     unoptimized: true,
     remotePatterns: [
