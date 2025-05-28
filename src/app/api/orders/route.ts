@@ -62,7 +62,6 @@ const client = new GraphQLClient('https://tven40-ib.myshopify.com/api/2024-01/gr
   headers: {
     'X-Shopify-Storefront-Access-Token': 'c72eea1c6de28db7d3f0fa22f0cf86fa',
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
   },
 });
 
@@ -90,24 +89,6 @@ const CREATE_CART = `
       cart {
         id
         checkoutUrl
-        lines(first: 10) {
-          edges {
-            node {
-              id
-              quantity
-              merchandise {
-                ... on ProductVariant {
-                  id
-                  title
-                  price {
-                    amount
-                    currencyCode
-                  }
-                }
-              }
-            }
-          }
-        }
       }
       userErrors {
         field
@@ -117,43 +98,27 @@ const CREATE_CART = `
   }
 `;
 
-interface ProductVariantResponse {
-  productVariant?: {
-    id: string;
-    title: string;
-    price: {
-      amount: string;
-      currencyCode: string;
-    };
-    product: {
-      id: string;
-      title: string;
-      publishedAt: string;
-    };
-  };
-}
+// interface ProductVariantResponse {
+//   productVariant?: {
+//     id: string;
+//     title: string;
+//     price: {
+//       amount: string;
+//       currencyCode: string;
+//     };
+//     product: {
+//       id: string;
+//       title: string;
+//       publishedAt: string;
+//     };
+//   };
+// }
 
 interface CartResponse {
   cartCreate: {
     cart?: {
       id: string;
       checkoutUrl: string;
-      lines: {
-        edges: Array<{
-          node: {
-            id: string;
-            quantity: number;
-            merchandise: {
-              id: string;
-              title: string;
-              price: {
-                amount: string;
-                currencyCode: string;
-              };
-            };
-          };
-        }>;
-      };
     };
     userErrors: Array<{
       field: string;
@@ -166,7 +131,7 @@ interface CartResponse {
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Access-Control-Max-Age': '86400',
 };
 
@@ -191,41 +156,17 @@ export async function OPTIONS() {
 
 // Handle POST request
 export async function POST(request: Request) {
-  console.log('📬 /api/orders POST request received');
-
-  // Verify request method
-  if (request.method !== 'POST') {
-    return corsResponse(
-      { error: `Method ${request.method} not allowed` },
-      405
-    );
-  }
-
   try {
     // Parse the request body
-    let body;
-    try {
-      body = await request.json();
-      console.log('Request body:', body);
-    } catch (e) {
-      console.error('Failed to parse request body:', e);
-      return corsResponse(
-        { error: 'Invalid request body' },
-        400
-      );
-    }
-
+    const body = await request.json();
     const { items } = body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-      console.log('Invalid items array:', items);
       return corsResponse(
-        { error: 'Invalid or empty items array' },
+        { error: 'No items provided' },
         400
       );
     }
-
-    console.log('Processing items:', items);
 
     // Format line items for cart
     const lines = items.map(item => ({
@@ -233,53 +174,35 @@ export async function POST(request: Request) {
       quantity: item.quantity
     }));
 
-    console.log('Created cart lines:', lines);
-
     // Create cart in Shopify
     const response = await client.request<CartResponse>(CREATE_CART, {
-      input: {
-        lines
-      }
+      input: { lines }
     });
 
-    console.log('Shopify response:', response);
-
     const cartCreate = response.cartCreate;
-    if (!cartCreate) {
+    
+    if (cartCreate.userErrors?.length > 0) {
       return corsResponse(
-        { error: 'Failed to create cart' },
-        500
-      );
-    }
-
-    const userErrors = cartCreate.userErrors || [];
-    if (userErrors.length > 0) {
-      console.error('Cart creation errors:', userErrors);
-      return corsResponse(
-        { error: userErrors.map((e: { message: string }) => e.message).join(', ') },
+        { error: cartCreate.userErrors[0].message },
         400
       );
     }
 
     if (!cartCreate.cart?.checkoutUrl) {
       return corsResponse(
-        { error: 'No checkout URL received from Shopify' },
+        { error: 'Failed to create checkout' },
         500
       );
     }
 
-    console.log('Cart created successfully:', cartCreate.cart);
-
     return corsResponse({
       success: true,
-      checkout: {
-        webUrl: cartCreate.cart.checkoutUrl
-      }
+      checkoutUrl: cartCreate.cart.checkoutUrl
     });
   } catch (error) {
-    console.error('Error creating cart:', error);
+    console.error('Error:', error);
     return corsResponse(
-      { error: error instanceof Error ? error.message : 'An unexpected error occurred' },
+      { error: 'Failed to process checkout' },
       500
     );
   }
