@@ -1,78 +1,109 @@
 import { NextResponse } from 'next/server';
 import { GraphQLClient } from 'graphql-request';
 
-interface ProductVariantResponse {
-  product?: {
-    id: string;
-    title: string;
-    variants: {
-      edges: Array<{
-        node: {
-          id: string;
-          title: string;
-          price: {
+// interface ProductVariantResponse {
+//   product?: {
+//     id: string;
+//     title: string;
+//     variants: {
+//       edges: Array<{
+//         node: {
+//           id: string;
+//           title: string;
+//           price: {
+//             amount: string;
+//             currencyCode: string;
+//           };
+//         };
+//       }>;
+//     };
+//   };
+// }
+
+// interface CheckoutResponse {
+//   checkoutCreate?: {
+//     checkout?: {
+//       id: string;
+//       webUrl: string;
+//     };
+//     checkoutUserErrors?: Array<{
+//       code: string;
+//       field: string;
+//       message: string;
+//     }>;
+//   };
+// }
+
+interface DraftOrderResponse {
+  draftOrderCreate: {
+    draftOrder?: {
+      id: string;
+      order?: {
+        id: string;
+        name: string;
+        totalPriceSet: {
+          shopMoney: {
             amount: string;
             currencyCode: string;
           };
         };
-      }>;
+      };
+      checkoutUrl: string;
     };
-  };
-}
-
-interface CheckoutResponse {
-  checkoutCreate?: {
-    checkout?: {
-      id: string;
-      webUrl: string;
-    };
-    checkoutUserErrors?: Array<{
-      code: string;
+    userErrors: Array<{
       field: string;
       message: string;
     }>;
   };
 }
 
-
-// Initialize Shopify Storefront GraphQL client
-const client = new GraphQLClient('https://tven40-ib.myshopify.com/api/2024-01/graphql.json', {
+// Initialize Shopify Admin GraphQL client
+const client = new GraphQLClient('https://tven40-ib.myshopify.com/admin/api/2024-01/graphql.json', {
   headers: {
-    'X-Shopify-Storefront-Access-Token': 'c72eea1c6de28db7d3f0fa22f0cf86fa',
+    'X-Shopify-Access-Token': process.env.SHOPIFY_ADMIN_ACCESS_TOKEN || '',
     'Content-Type': 'application/json',
   },
 });
 
-const GET_PRODUCT_VARIANT = `
-  query getProductVariant($id: ID!) {
-    product(id: $id) {
-      id
-      title
-      variants(first: 1) {
-        edges {
-          node {
-            id
-            title
-            price {
+// const GET_PRODUCT_VARIANT = `
+//   query getProductVariant($id: ID!) {
+//     product(id: $id) {
+//       id
+//       title
+//       variants(first: 1) {
+//         edges {
+//           node {
+//             id
+//             title
+//             price {
+//               amount
+//               currencyCode
+//             }
+//           }
+//         }
+//       }
+//     }
+//   }
+// `;
+
+const CREATE_CHECKOUT = `
+  mutation draftOrderCreate($input: DraftOrderInput!) {
+    draftOrderCreate(input: $input) {
+      draftOrder {
+        id
+        order {
+          id
+          name
+          totalPriceSet {
+            shopMoney {
               amount
               currencyCode
             }
           }
         }
+        checkoutUrl
       }
-    }
-  }
-`;
-
-const CREATE_CHECKOUT = `
-  mutation checkoutCreate($input: CheckoutCreateInput!) {
-    checkoutCreate(input: $input) {
-      checkout {
-        id
-        webUrl
-      }
-      checkoutUserErrors {
-        code
+      userErrors {
         field
         message
       }
@@ -137,53 +168,42 @@ export async function POST(request: Request) {
 
     console.log('Processing items:', items);
 
-    // Get the first variant ID for each product
-    const lineItems = await Promise.all(items.map(async (item) => {
-      try {
-        console.log('Processing item:', item);
-        
-        // Get the first variant of the product
-        const response = await client.request<ProductVariantResponse>(GET_PRODUCT_VARIANT, {
-          id: item.productId
-        });
-
-        console.log('Variant response:', response);
-
-        const variant = response.product?.variants?.edges[0]?.node;
-        if (!variant) {
-          throw new Error(`No variant found for product: ${item.title}`);
-        }
-
-        return {
-          quantity: item.quantity,
-          variantId: variant.id
-        };
-      } catch (error) {
-        console.error('Error processing item:', error);
-        throw error;
-      }
+    // Format line items for draft order
+    const lineItems = items.map(item => ({
+      variantId: item.productId,
+      quantity: item.quantity,
+      title: item.title,
+      price: item.price.amount
     }));
 
     console.log('Created line items:', lineItems);
 
-    // Create checkout in Shopify
-    const response = await client.request<CheckoutResponse>(CREATE_CHECKOUT, {
+    // Create draft order in Shopify
+    const response = await client.request<DraftOrderResponse>(CREATE_CHECKOUT, {
       input: {
-        lineItems
+        lineItems,
+        email: 'customer@example.com',
+        shippingAddress: {
+          address1: '123 Main St',
+          city: 'Toronto',
+          province: 'ON',
+          country: 'Canada',
+          zip: 'M5V 2T6'
+        }
       }
     });
 
-    console.log('Shopify checkout response:', response);
+    console.log('Shopify response:', response);
 
-    const checkoutCreate = response.checkoutCreate;
-    if (!checkoutCreate) {
+    const draftOrderCreate = response.draftOrderCreate;
+    if (!draftOrderCreate) {
       return corsResponse(
-        { error: 'Failed to create checkout' },
+        { error: 'Failed to create draft order' },
         500
       );
     }
 
-    const userErrors = checkoutCreate.checkoutUserErrors || [];
+    const userErrors = draftOrderCreate.userErrors || [];
     if (userErrors.length > 0) {
       return corsResponse(
         { error: userErrors.map((e: { message: string }) => e.message).join(', ') },
@@ -191,21 +211,23 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!checkoutCreate.checkout?.webUrl) {
+    if (!draftOrderCreate.draftOrder?.checkoutUrl) {
       return corsResponse(
         { error: 'No checkout URL received from Shopify' },
         500
       );
     }
 
-    console.log('Checkout created successfully:', checkoutCreate.checkout);
+    console.log('Draft order created successfully:', draftOrderCreate.draftOrder);
 
     return corsResponse({
       success: true,
-      checkout: checkoutCreate.checkout
+      checkout: {
+        webUrl: draftOrderCreate.draftOrder.checkoutUrl
+      }
     });
   } catch (error) {
-    console.error('Error creating checkout:', error);
+    console.error('Error creating draft order:', error);
     return corsResponse(
       { error: error instanceof Error ? error.message : 'An unexpected error occurred' },
       500
