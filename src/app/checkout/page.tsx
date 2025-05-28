@@ -33,17 +33,23 @@ export default function CheckoutPage() {
 
       console.log('Starting order process with items:', items);
 
+      // Format the request body
+      const requestBody = {
+        items: items.map(item => ({
+          productId: item.id,
+          quantity: item.quantity
+        }))
+      };
+
+      console.log('Sending request with body:', requestBody);
+
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
-        body: JSON.stringify({
-          items: items.map(item => ({
-            productId: item.id,
-            quantity: item.quantity
-          }))
-        })
+        body: JSON.stringify(requestBody)
       });
 
       console.log('Received response:', response.status, response.statusText);

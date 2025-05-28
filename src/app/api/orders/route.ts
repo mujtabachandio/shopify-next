@@ -33,6 +33,14 @@ export async function OPTIONS() {
 
 // Handle POST request
 export async function POST(request: Request) {
+  // Add CORS preflight check
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, {
+      status: 204,
+      headers: corsHeaders,
+    });
+  }
+
   try {
     // Parse the request body
     const body = await request.json();
@@ -99,4 +107,14 @@ export async function POST(request: Request) {
 }
 
 // Add configuration for the API route
-export const runtime = 'edge'; 
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+// Export the route configuration
+export const config = {
+  api: {
+    bodyParser: true,
+    externalResolver: true,
+  },
+}; 
