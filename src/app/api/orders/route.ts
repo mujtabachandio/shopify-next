@@ -94,15 +94,21 @@ const corsHeaders = {
 
 // Handle OPTIONS request for CORS
 export async function OPTIONS() {
-  return NextResponse.json({}, { headers: corsHeaders });
+  return new NextResponse(null, {
+    status: 204,
+    headers: corsHeaders,
+  });
 }
 
 export async function GET() {
-  return NextResponse.json(
-    { error: 'Method not allowed. Please use POST for creating orders.' },
+  return new NextResponse(
+    JSON.stringify({ error: 'Method not allowed. Please use POST for creating orders.' }),
     { 
       status: 405,
-      headers: corsHeaders
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+      }
     }
   );
 }
@@ -114,11 +120,14 @@ export async function POST(request: Request) {
       body = await request.json();
     } catch (error) {
       console.error('Failed to parse request body:', error);
-      return NextResponse.json(
-        { error: 'Invalid JSON in request body' },
+      return new NextResponse(
+        JSON.stringify({ error: 'Invalid JSON in request body' }),
         { 
           status: 400,
-          headers: corsHeaders
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          }
         }
       );
     }
@@ -126,11 +135,14 @@ export async function POST(request: Request) {
     const { items, total } = body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json(
-        { error: 'No items provided in the order' },
+      return new NextResponse(
+        JSON.stringify({ error: 'No items provided in the order' }),
         { 
           status: 400,
-          headers: corsHeaders
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          }
         }
       );
     }
@@ -192,11 +204,14 @@ export async function POST(request: Request) {
     const checkoutCreate = response.checkoutCreate;
     if (!checkoutCreate) {
       console.error('No checkout response from Shopify');
-      return NextResponse.json(
-        { error: 'Failed to create checkout - no response from Shopify' },
+      return new NextResponse(
+        JSON.stringify({ error: 'Failed to create checkout - no response from Shopify' }),
         { 
           status: 500,
-          headers: corsHeaders
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          }
         }
       );
     }
@@ -204,32 +219,44 @@ export async function POST(request: Request) {
     const userErrors = checkoutCreate.checkoutUserErrors || [];
     if (userErrors.length > 0) {
       console.error('Checkout creation errors:', userErrors);
-      return NextResponse.json(
-        { error: userErrors.map((e: { message: string }) => e.message).join(', ') },
+      return new NextResponse(
+        JSON.stringify({ error: userErrors.map((e: { message: string }) => e.message).join(', ') }),
         { 
           status: 400,
-          headers: corsHeaders
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          }
         }
       );
     }
 
     if (!checkoutCreate.checkout?.webUrl) {
       console.error('No checkout URL in response:', checkoutCreate);
-      return NextResponse.json(
-        { error: 'No checkout URL received from Shopify' },
+      return new NextResponse(
+        JSON.stringify({ error: 'No checkout URL received from Shopify' }),
         { 
           status: 500,
-          headers: corsHeaders
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          }
         }
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      checkout: checkoutCreate.checkout
-    }, {
-      headers: corsHeaders
-    });
+    return new NextResponse(
+      JSON.stringify({
+        success: true,
+        checkout: checkoutCreate.checkout
+      }),
+      {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        }
+      }
+    );
   } catch (error) {
     console.error('Error creating checkout:', error);
     // Log the full error details
@@ -240,11 +267,14 @@ export async function POST(request: Request) {
         name: error.name
       });
     }
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to create checkout' },
+    return new NextResponse(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to create checkout' }),
       { 
         status: 500,
-        headers: corsHeaders
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        }
       }
     );
   }
