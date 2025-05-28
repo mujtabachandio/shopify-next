@@ -197,7 +197,9 @@ export async function POST(request: Request) {
 
     return corsResponse({
       success: true,
-      checkoutUrl: cartCreate.cart.checkoutUrl
+      checkout: {
+        webUrl: cartCreate.cart.checkoutUrl
+      }
     });
   } catch (error) {
     console.error('Error:', error);
