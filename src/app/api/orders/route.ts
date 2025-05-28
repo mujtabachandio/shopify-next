@@ -80,37 +80,60 @@ const CREATE_CHECKOUT = `
   }
 `;
 
+// CORS headers configuration
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+  'Access-Control-Max-Age': '86400',
+};
+
+// Helper function to create response with CORS headers
+function corsResponse(data: any, status: number = 200) {
+  return NextResponse.json(data, {
+    status,
+    headers: corsHeaders,
+  });
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: corsHeaders,
+  });
+}
+
 export async function POST(request: Request) {
-  // Add CORS headers
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  };
-
-  // Handle preflight requests
-  if (request.method === 'OPTIONS') {
-    return new NextResponse(null, { headers });
-  }
-
   try {
+    // Log the incoming request
+    console.log('Received checkout request');
+
     const body = await request.json();
+    console.log('Request body:', body);
+
     const { items } = body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json(
+      console.log('Invalid items array:', items);
+      return corsResponse(
         { error: 'Invalid or empty items array' },
-        { status: 400, headers }
+        400
       );
     }
+
+    console.log('Processing items:', items);
 
     // Get the first variant ID for each product
     const lineItems = await Promise.all(items.map(async (item) => {
       try {
+        console.log('Processing item:', item);
+        
         // Get the first variant of the product
         const response = await client.request<ProductVariantResponse>(GET_PRODUCT_VARIANT, {
           id: item.productId
         });
+
+        console.log('Variant response:', response);
 
         const variant = response.product?.variants?.edges[0]?.node;
         if (!variant) {
@@ -127,6 +150,8 @@ export async function POST(request: Request) {
       }
     }));
 
+    console.log('Created line items:', lineItems);
+
     // Create checkout in Shopify
     const response = await client.request<CheckoutResponse>(CREATE_CHECKOUT, {
       input: {
@@ -134,49 +159,42 @@ export async function POST(request: Request) {
       }
     });
 
+    console.log('Shopify checkout response:', response);
+
     const checkoutCreate = response.checkoutCreate;
     if (!checkoutCreate) {
-      return NextResponse.json(
+      return corsResponse(
         { error: 'Failed to create checkout' },
-        { status: 500, headers }
+        500
       );
     }
 
     const userErrors = checkoutCreate.checkoutUserErrors || [];
     if (userErrors.length > 0) {
-      return NextResponse.json(
+      return corsResponse(
         { error: userErrors.map((e: { message: string }) => e.message).join(', ') },
-        { status: 400, headers }
+        400
       );
     }
 
     if (!checkoutCreate.checkout?.webUrl) {
-      return NextResponse.json(
+      return corsResponse(
         { error: 'No checkout URL received from Shopify' },
-        { status: 500, headers }
+        500
       );
     }
 
-    return NextResponse.json({
+    console.log('Checkout created successfully:', checkoutCreate.checkout);
+
+    return corsResponse({
       success: true,
       checkout: checkoutCreate.checkout
-    }, { headers });
+    });
   } catch (error) {
     console.error('Error creating checkout:', error);
-    return NextResponse.json(
+    return corsResponse(
       { error: error instanceof Error ? error.message : 'An unexpected error occurred' },
-      { status: 500, headers }
+      500
     );
   }
-}
-
-// Add OPTIONS handler for CORS preflight requests
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    },
-  });
 } 
