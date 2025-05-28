@@ -90,9 +90,12 @@ const corsHeaders = {
 
 // Helper function to create response with CORS headers
 function corsResponse(data: Record<string, unknown>, status: number = 200) {
-  return NextResponse.json(data, {
+  return new NextResponse(JSON.stringify(data), {
     status,
-    headers: corsHeaders,
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json',
+    },
   });
 }
 
