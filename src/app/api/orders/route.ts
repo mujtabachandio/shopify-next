@@ -1,131 +1,8 @@
 import { NextResponse } from 'next/server';
-import { GraphQLClient } from 'graphql-request';
 
-// interface ProductVariantResponse {
-//   product?: {
-//     id: string;
-//     title: string;
-//     variants: {
-//       edges: Array<{
-//         node: {
-//           id: string;
-//           title: string;
-//           price: {
-//             amount: string;
-//             currencyCode: string;
-//           };
-//         };
-//       }>;
-//     };
-//   };
-// }
-
-// interface CheckoutResponse {
-//   checkoutCreate?: {
-//     checkout?: {
-//       id: string;
-//       webUrl: string;
-//     };
-//     checkoutUserErrors?: Array<{
-//       code: string;
-//       field: string;
-//       message: string;
-//     }>;
-//   };
-// }
-
-// interface DraftOrderResponse {
-//   draftOrderCreate: {
-//     draftOrder?: {
-//       id: string;
-//       order?: {
-//         id: string;
-//         name: string;
-//         totalPriceSet: {
-//           shopMoney: {
-//             amount: string;
-//             currencyCode: string;
-//           };
-//         };
-//       };
-//       checkoutUrl: string;
-//     };
-//     userErrors: Array<{
-//       field: string;
-//       message: string;
-//     }>;
-//   };
-// }
-
-// Initialize Shopify Storefront GraphQL client
-const client = new GraphQLClient('https://tven40-ib.myshopify.com/api/2024-01/graphql.json', {
-  headers: {
-    'X-Shopify-Storefront-Access-Token': 'c72eea1c6de28db7d3f0fa22f0cf86fa',
-    'Content-Type': 'application/json',
-  },
-});
-
-// const GET_PRODUCT_VARIANT = `
-//   query getProductVariant($id: ID!) {
-//     productVariant(id: $id) {
-//       id
-//       title
-//       price {
-//         amount
-//         currencyCode
-//       }
-//       product {
-//         id
-//         title
-//         publishedAt
-//       }
-//     }
-//   }
-// `;
-
-const CREATE_CART = `
-  mutation cartCreate($input: CartInput!) {
-    cartCreate(input: $input) {
-      cart {
-        id
-        checkoutUrl
-      }
-      userErrors {
-        field
-        message
-      }
-    }
-  }
-`;
-
-// interface ProductVariantResponse {
-//   productVariant?: {
-//     id: string;
-//     title: string;
-//     price: {
-//       amount: string;
-//       currencyCode: string;
-//     };
-//     product: {
-//       id: string;
-//       title: string;
-//       publishedAt: string;
-//     };
-//   };
-// }
-
-interface CartResponse {
-  cartCreate: {
-    cart?: {
-      id: string;
-      checkoutUrl: string;
-    };
-    userErrors: Array<{
-      field: string;
-      message: string;
-    }>;
-  };
-}
+// Initialize Shopify Admin API client
+const SHOPIFY_ADMIN_API_URL = 'https://tven40-ib.myshopify.com/admin/api/2024-01';
+const SHOPIFY_ACCESS_TOKEN = 'c72eea1c6de28db7d3f0fa22f0cf86fa';
 
 // CORS headers configuration
 const corsHeaders = {
@@ -168,43 +45,52 @@ export async function POST(request: Request) {
       );
     }
 
-    // Format line items for cart
-    const lines = items.map(item => ({
-      merchandiseId: item.productId,
+    // Format line items for order
+    const lineItems = items.map(item => ({
+      variant_id: item.productId.split('/').pop(), // Extract variant ID from GID
       quantity: item.quantity
     }));
 
-    // Create cart in Shopify
-    const response = await client.request<CartResponse>(CREATE_CART, {
-      input: { lines }
+    // Create order in Shopify
+    const response = await fetch(`${SHOPIFY_ADMIN_API_URL}/orders.json`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': SHOPIFY_ACCESS_TOKEN,
+      },
+      body: JSON.stringify({
+        order: {
+          line_items: lineItems,
+          financial_status: 'pending',
+          send_receipt: true,
+          send_fulfillment_receipt: true
+        }
+      })
     });
 
-    const cartCreate = response.cartCreate;
-    
-    if (cartCreate.userErrors?.length > 0) {
+    if (!response.ok) {
+      const errorData = await response.json();
       return corsResponse(
-        { error: cartCreate.userErrors[0].message },
-        400
+        { error: errorData.errors || 'Failed to create order' },
+        response.status
       );
     }
 
-    if (!cartCreate.cart?.checkoutUrl) {
-      return corsResponse(
-        { error: 'Failed to create checkout' },
-        500
-      );
-    }
+    const orderData = await response.json();
 
     return corsResponse({
       success: true,
-      checkout: {
-        webUrl: cartCreate.cart.checkoutUrl
+      order: {
+        id: orderData.order.id,
+        orderNumber: orderData.order.order_number,
+        totalPrice: orderData.order.total_price,
+        status: orderData.order.financial_status
       }
     });
   } catch (error) {
     console.error('Error:', error);
     return corsResponse(
-      { error: 'Failed to process checkout' },
+      { error: 'Failed to process order' },
       500
     );
   }
