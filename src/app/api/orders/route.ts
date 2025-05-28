@@ -98,6 +98,7 @@ export async function POST(request: Request) {
     try {
       body = await request.json();
     } catch (error) {
+      console.error('Failed to parse request body:', error);
       return NextResponse.json(
         { error: 'Invalid JSON in request body' },
         { status: 400 }
@@ -144,6 +145,14 @@ export async function POST(request: Request) {
         };
       } catch (error) {
         console.error('Error processing item:', error);
+        // Log the full error details
+        if (error instanceof Error) {
+          console.error('Error details:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+          });
+        }
         throw new Error(`Failed to process item ${item.title}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }));
@@ -161,6 +170,7 @@ export async function POST(request: Request) {
 
     const checkoutCreate = response.checkoutCreate;
     if (!checkoutCreate) {
+      console.error('No checkout response from Shopify');
       return NextResponse.json(
         { error: 'Failed to create checkout - no response from Shopify' },
         { status: 500 }
@@ -177,6 +187,7 @@ export async function POST(request: Request) {
     }
 
     if (!checkoutCreate.checkout?.webUrl) {
+      console.error('No checkout URL in response:', checkoutCreate);
       return NextResponse.json(
         { error: 'No checkout URL received from Shopify' },
         { status: 500 }
@@ -189,6 +200,14 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('Error creating checkout:', error);
+    // Log the full error details
+    if (error instanceof Error) {
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+    }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to create checkout' },
       { status: 500 }
