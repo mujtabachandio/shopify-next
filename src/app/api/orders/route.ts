@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { GraphQLClient } from 'graphql-request';
-import cartFragment from '@/lib/graphql/fragments/cart';
 
 interface ProductVariantResponse {
   product?: {
@@ -39,58 +38,6 @@ interface CartItem {
   productId: string;
   title: string;
   quantity: number;
-  price?: {
-    amount: number;
-    currencyCode: string;
-  };
-}
-
-interface CartResponse {
-  cart?: {
-    id: string;
-    checkoutUrl: string;
-    cost: {
-      subtotalAmount: {
-        amount: string;
-        currencyCode: string;
-      };
-      totalAmount: {
-        amount: string;
-        currencyCode: string;
-      };
-      totalTaxAmount: {
-        amount: string;
-        currencyCode: string;
-      };
-    };
-    lines: {
-      edges: Array<{
-        node: {
-          id: string;
-          quantity: number;
-          cost: {
-            totalAmount: {
-              amount: string;
-              currencyCode: string;
-            };
-          };
-          merchandise: {
-            id: string;
-            title: string;
-            selectedOptions: Array<{
-              name: string;
-              value: string;
-            }>;
-            product: {
-              id: string;
-              title: string;
-            };
-          };
-        };
-      }>;
-    };
-    totalQuantity: number;
-  };
 }
 
 // Initialize Shopify Storefront GraphQL client
@@ -138,98 +85,16 @@ const CREATE_CHECKOUT = `
   }
 `;
 
-const GET_CART = `
-  query getCart($cartId: ID!) {
-    cart(id: $cartId) {
-      ...cart
-    }
-  }
-  ${cartFragment}
-`;
-
-// Export both methods as named exports
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const cartId = searchParams.get('cartId');
-
-    if (!cartId) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Cart ID is required' }),
-        { 
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    const response = await client.request<CartResponse>(GET_CART, { cartId });
-    
-    if (!response.cart) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Cart not found' }),
-        { 
-          status: 404,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    return new NextResponse(
-      JSON.stringify(response.cart),
-      { 
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    );
-  } catch (error) {
-    console.error('Error fetching cart:', error);
-    return new NextResponse(
-      JSON.stringify({ error: 'Failed to fetch cart' }),
-      { 
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    );
-  }
-}
-
 export async function POST(request: Request) {
   try {
-    let body;
-    try {
-      body = await request.json();
-    } catch {
-      return new NextResponse(
-        JSON.stringify({ error: 'Invalid JSON in request body' }),
-        { 
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-    }
+    const body = await request.json();
+    const { items, total } = body;
 
-    const { items, total, cartId } = body;
-
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return new NextResponse(
-        JSON.stringify({ error: 'No items provided in the order' }),
-        { 
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    console.log('Received order request:', { items, total, cartId });
+    console.log('Received order request:', { items, total });
 
     // Get the first variant ID for each product
     const lineItems = await Promise.all(items.map(async (item: CartItem) => {
       console.log('Processing item:', item);
-
-      if (!item.productId) {
-        throw new Error(`Missing product ID for item: ${item.title}`);
-      }
 
       try {
         // Get the first variant of the product
@@ -252,7 +117,7 @@ export async function POST(request: Request) {
         };
       } catch (error) {
         console.error('Error processing item:', error);
-        throw new Error(`Failed to process item ${item.title}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw error;
       }
     }));
 
@@ -269,55 +134,30 @@ export async function POST(request: Request) {
 
     const checkoutCreate = response.checkoutCreate;
     if (!checkoutCreate) {
-      return new NextResponse(
-        JSON.stringify({ error: 'Failed to create checkout - no response from Shopify' }),
-        { 
-          status: 500,
-          headers: { 'Content-Type': 'application/json' }
-        }
+      return NextResponse.json(
+        { error: 'Failed to create checkout' },
+        { status: 500 }
       );
     }
 
     const userErrors = checkoutCreate.checkoutUserErrors || [];
     if (userErrors.length > 0) {
       console.error('Checkout creation errors:', userErrors);
-      return new NextResponse(
-        JSON.stringify({ error: userErrors.map((e: { message: string }) => e.message).join(', ') }),
-        { 
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        }
+      return NextResponse.json(
+        { error: userErrors.map((e: { message: string }) => e.message).join(', ') },
+        { status: 400 }
       );
     }
 
-    if (!checkoutCreate.checkout?.webUrl) {
-      return new NextResponse(
-        JSON.stringify({ error: 'No checkout URL received from Shopify' }),
-        { 
-          status: 500,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    return new NextResponse(
-      JSON.stringify({
-        success: true,
-        checkout: checkoutCreate.checkout
-      }),
-      { 
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    );
+    return NextResponse.json({
+      success: true,
+      checkout: checkoutCreate.checkout
+    });
   } catch (error) {
     console.error('Error creating checkout:', error);
-    return new NextResponse(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to create checkout' }),
-      { 
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      }
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to create checkout' },
+      { status: 500 }
     );
   }
 } 

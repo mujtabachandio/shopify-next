@@ -2,7 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useCart } from "@/context/CartContext";
-import { ChevronDownIcon, ShoppingCartIcon } from "@heroicons/react/24/outline";
+import { ChevronDownIcon, ShoppingCartIcon, CheckIcon } from "@heroicons/react/24/outline";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface VideoCardProps {
   id: string;
@@ -37,8 +38,14 @@ export default function VideoCard({
 }: VideoCardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [showDescription, setShowDescription] = useState(false);
-  const { addItem } = useCart();
+  const { addItem, items } = useCart();
   const [isVisible, setIsVisible] = useState(false);
+  const [isInCart, setIsInCart] = useState(false);
+
+  // Check if item is in cart
+  useEffect(() => {
+    setIsInCart(items.some(item => item.id === id));
+  }, [items, id]);
 
   const isYouTubeVideo = videoUrl && (videoUrl.includes('youtube.com/embed') || videoUrl.includes('youtu.be') || videoUrl.includes('youtube.com/watch'));
 
@@ -102,50 +109,83 @@ export default function VideoCard({
     };
     
     addItem(cartItem);
+    setIsInCart(true);
   };
 
   // If this is not a video, just render the image
   if (!isYouTubeVideo || !videoUrl) {
     return (
-      <div className="relative w-full h-[calc(100vh-4rem)] min-h-[600px] max-h-[800px] bg-black snap-start snap-always">
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="relative w-full h-[calc(100vh-4rem)] min-h-[600px] max-h-[800px] bg-black snap-start snap-always overflow-hidden"
+      >
         <div className="absolute inset-0">
           <Image
             src={thumbnail}
             alt={title}
             fill
-            className="object-cover"
+            className="object-cover transform hover:scale-105 transition-transform duration-700"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             priority
           />
         </div>
 
         {/* Bottom Info Section */}
-        <div className="absolute bottom-0 pb-20 left-0 right-0 p-6 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
+        <div className="absolute bottom-0 pb-20 left-0 right-0 p-6 bg-gradient-to-t from-black/95 via-black/70 to-transparent">
           <div className="space-y-4">
             {/* Title and Brand */}
             <div className="flex items-start justify-between">
               <div className="space-y-1">
-                <h2 className="text-2xl font-bold text-white">{title}</h2>
-                <p className="text-sm text-white/70 font-medium">{brandName}</p>
+                <h2 className="text-2xl font-bold text-white drop-shadow-lg">{title}</h2>
+                <p className="text-sm text-white/80 font-medium">{brandName}</p>
               </div>
               <div className="flex flex-col items-end space-y-2">
-                <span className="text-xl font-bold text-white">
+                <span className="text-xl font-bold text-white bg-black/30 px-3 py-1 rounded-full backdrop-blur-sm">
                   {price.currencyCode} {price.amount.toLocaleString()}
                 </span>
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={handleAddToCart}
-                  className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center space-x-2 ${
-                    showDescription ? 'bg-green-500/20 text-green-400' : 'bg-white text-black hover:bg-white/90'
+                  className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center space-x-2 shadow-lg ${
+                    isInCart 
+                      ? 'bg-green-500 text-white hover:bg-green-600' 
+                      : 'bg-white text-black hover:bg-white/90'
                   }`}
                 >
-                  <ShoppingCartIcon className="w-5 h-5" />
-                  <span>Add to Cart</span>
-                </button>
+                  <AnimatePresence mode="wait">
+                    {isInCart ? (
+                      <motion.div
+                        key="check"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0 }}
+                        className="flex items-center space-x-2"
+                      >
+                        <CheckIcon className="w-5 h-5" />
+                        <span>Added to Cart</span>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="cart"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0 }}
+                        className="flex items-center space-x-2"
+                      >
+                        <ShoppingCartIcon className="w-5 h-5" />
+                        <span>Add to Cart</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.button>
               </div>
             </div>
 
             {/* Description Toggle */}
-            <button
+            <motion.button
+              whileHover={{ scale: 1.02 }}
               onClick={() => setShowDescription(!showDescription)}
               className="flex items-center pb-20 text-white/70 hover:text-white transition-colors"
             >
@@ -153,28 +193,40 @@ export default function VideoCard({
                 {showDescription ? 'Hide Description' : 'Show Description'}
               </span>
               <ChevronDownIcon 
-                className={`w-4 h-4 ml-1  transition-transform duration-300 ${
+                className={`w-4 h-4 ml-1 transition-transform duration-300 ${
                   showDescription ? 'rotate-180' : ''
                 }`}
               />
-            </button>
+            </motion.button>
 
             {/* Description */}
-            {showDescription && (
-              <div className="mt-2 p-4 pb-20 bg-white/10 backdrop-blur-sm rounded-lg border border-white/10">
-                <p className="text-sm text-white/90 leading-relaxed">
-                  {description}
-                </p>
-              </div>
-            )}
+            <AnimatePresence>
+              {showDescription && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-2 p-4 pb-20 bg-white/10 backdrop-blur-sm rounded-lg border border-white/10"
+                >
+                  <p className="text-sm text-white/90 leading-relaxed">
+                    {description}
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <div ref={containerRef} className="relative w-full h-[calc(100vh-4rem)] min-h-[600px] max-h-[800px] bg-black snap-start snap-always">
+    <motion.div 
+      ref={containerRef} 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="relative w-full h-[calc(100vh-4rem)] min-h-[600px] max-h-[800px] bg-black snap-start snap-always overflow-hidden"
+    >
       {isVisible && isYouTubeVideo && embedUrl ? (
         <iframe
           src={`${embedUrl}?autoplay=1&mute=1&controls=1&showinfo=0&rel=0&loop=1&playlist=${videoId}&modestbranding=1`}
@@ -190,7 +242,7 @@ export default function VideoCard({
             src={thumbnail}
             alt={title}
             fill
-            className="object-cover"
+            className="object-cover transform hover:scale-105 transition-transform duration-700"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             priority
           />
@@ -198,32 +250,60 @@ export default function VideoCard({
       )}
 
       {/* Bottom Info Section */}
-      <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
+      <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/95 via-black/70 to-transparent">
         <div className="space-y-4">
           {/* Title and Brand */}
           <div className="flex items-start justify-between">
             <div className="space-y-1">
-              <h2 className="text-2xl font-bold text-white">{title}</h2>
-              <p className="text-sm text-white/70 font-medium">{brandName}</p>
+              <h2 className="text-2xl font-bold text-white drop-shadow-lg">{title}</h2>
+              <p className="text-sm text-white/80 font-medium">{brandName}</p>
             </div>
             <div className="flex flex-col items-end space-y-2">
-              <span className="text-xl font-bold text-white">
+              <span className="text-xl font-bold text-white bg-black/30 px-3 py-1 rounded-full backdrop-blur-sm">
                 {price.currencyCode} {price.amount.toLocaleString()}
               </span>
-              <button
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={handleAddToCart}
-                className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center space-x-2 ${
-                  showDescription ? 'bg-green-500/20 text-green-400' : 'bg-white text-black hover:bg-white/90'
+                className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center space-x-2 shadow-lg ${
+                  isInCart 
+                    ? 'bg-green-500 text-white hover:bg-green-600' 
+                    : 'bg-white text-black hover:bg-white/90'
                 }`}
               >
-                <ShoppingCartIcon className="w-5 h-5" />
-                <span>Add to Cart</span>
-              </button>
+                <AnimatePresence mode="wait">
+                  {isInCart ? (
+                    <motion.div
+                      key="check"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                      className="flex items-center space-x-2"
+                    >
+                      <CheckIcon className="w-5 h-5" />
+                      <span>Added to Cart</span>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="cart"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                      className="flex items-center space-x-2"
+                    >
+                      <ShoppingCartIcon className="w-5 h-5" />
+                      <span>Add to Cart</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.button>
             </div>
           </div>
 
           {/* Description Toggle */}
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02 }}
             onClick={() => setShowDescription(!showDescription)}
             className="flex items-center text-white/70 hover:text-white transition-colors"
           >
@@ -235,18 +315,25 @@ export default function VideoCard({
                 showDescription ? 'rotate-180' : ''
               }`}
             />
-          </button>
+          </motion.button>
 
           {/* Description */}
-          {showDescription && (
-            <div className="mt-2 p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/10">
-              <p className="text-sm text-white/90 leading-relaxed">
-                {description}
-              </p>
-            </div>
-          )}
+          <AnimatePresence>
+            {showDescription && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-2 p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/10"
+              >
+                <p className="text-sm text-white/90 leading-relaxed">
+                  {description}
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
