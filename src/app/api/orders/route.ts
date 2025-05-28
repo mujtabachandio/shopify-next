@@ -106,7 +106,7 @@ export async function OPTIONS() {
 
 // Handle POST request
 export async function POST(request: Request) {
-  console.log('Received POST request to /api/orders');
+  console.log('📬 /api/orders POST request received');
 
   try {
     // Parse the request body
