@@ -147,11 +147,35 @@ const GET_CART = `
   ${cartFragment}
 `;
 
-export async function GET() {
-  return NextResponse.json(
-    { error: 'Method not allowed. Please use POST for creating orders.' },
-    { status: 405 }
-  );
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const cartId = searchParams.get('cartId');
+
+    if (!cartId) {
+      return NextResponse.json(
+        { error: 'Cart ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const response = await client.request<CartResponse>(GET_CART, { cartId });
+    
+    if (!response.cart) {
+      return NextResponse.json(
+        { error: 'Cart not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(response.cart);
+  } catch (error) {
+    console.error('Error fetching cart:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch cart' },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: Request) {
@@ -176,27 +200,6 @@ export async function POST(request: Request) {
     }
 
     console.log('Received order request:', { items, total, cartId });
-
-    // If cartId is provided, verify the cart contents
-    if (cartId) {
-      try {
-        const cartResponse = await client.request<CartResponse>(GET_CART, { cartId });
-        console.log('Cart verification response:', cartResponse);
-        
-        if (!cartResponse.cart) {
-          return NextResponse.json(
-            { error: 'Invalid cart ID provided' },
-            { status: 400 }
-          );
-        }
-      } catch (error) {
-        console.error('Error verifying cart:', error);
-        return NextResponse.json(
-          { error: 'Failed to verify cart contents' },
-          { status: 400 }
-        );
-      }
-    }
 
     // Get the first variant ID for each product
     const lineItems = await Promise.all(items.map(async (item: CartItem) => {

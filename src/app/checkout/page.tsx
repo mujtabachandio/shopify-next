@@ -2,14 +2,28 @@
 
 import { useCart } from "@/context/CartContext";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function CheckoutPage() {
   const { items, clearCart } = useCart();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  // Redirect if cart is empty
+  useEffect(() => {
+    if (items.length === 0) {
+      router.push('/');
+    }
+  }, [items, router]);
 
   const handleCheckout = async () => {
+    if (items.length === 0) {
+      setError('Your cart is empty');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -64,6 +78,10 @@ export default function CheckoutPage() {
   };
 
   const total = items.reduce((sum, item) => sum + (item.price.amount * item.quantity), 0);
+
+  if (items.length === 0) {
+    return null; // Will be redirected by useEffect
+  }
 
   return (
     <div className="min-h-screen bg-background py-12 px-4 sm:px-6 lg:px-8">
