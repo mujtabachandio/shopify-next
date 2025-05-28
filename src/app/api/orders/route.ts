@@ -81,14 +81,26 @@ const CREATE_CHECKOUT = `
 `;
 
 export async function POST(request: Request) {
+  // Add CORS headers
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+
+  // Handle preflight requests
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, { headers });
+  }
+
   try {
     const body = await request.json();
-    const { items} = body;
+    const { items } = body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
         { error: 'Invalid or empty items array' },
-        { status: 400 }
+        { status: 400, headers }
       );
     }
 
@@ -126,7 +138,7 @@ export async function POST(request: Request) {
     if (!checkoutCreate) {
       return NextResponse.json(
         { error: 'Failed to create checkout' },
-        { status: 500 }
+        { status: 500, headers }
       );
     }
 
@@ -134,26 +146,37 @@ export async function POST(request: Request) {
     if (userErrors.length > 0) {
       return NextResponse.json(
         { error: userErrors.map((e: { message: string }) => e.message).join(', ') },
-        { status: 400 }
+        { status: 400, headers }
       );
     }
 
     if (!checkoutCreate.checkout?.webUrl) {
       return NextResponse.json(
         { error: 'No checkout URL received from Shopify' },
-        { status: 500 }
+        { status: 500, headers }
       );
     }
 
     return NextResponse.json({
       success: true,
       checkout: checkoutCreate.checkout
-    });
+    }, { headers });
   } catch (error) {
     console.error('Error creating checkout:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'An unexpected error occurred' },
-      { status: 500 }
+      { status: 500, headers }
     );
   }
+}
+
+// Add OPTIONS handler for CORS preflight requests
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  });
 } 
