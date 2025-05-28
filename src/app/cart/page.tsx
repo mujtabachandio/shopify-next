@@ -103,7 +103,7 @@ export default function CartPage() {
 
             {/* Checkout Button */}
             <button
-              onClick={() => router.push('/checkout')}
+              onClick={() => router.push(`/checkout?cartId=${localStorage.getItem('cartId')}`)}
               className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
             >
               Proceed to Checkout
