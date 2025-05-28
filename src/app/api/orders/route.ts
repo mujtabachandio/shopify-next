@@ -34,7 +34,6 @@ interface CheckoutResponse {
   };
 }
 
-
 // Initialize Shopify Storefront GraphQL client
 const client = new GraphQLClient('https://tven40-ib.myshopify.com/api/2024-01/graphql.json', {
   headers: {
@@ -137,10 +136,10 @@ export async function POST(request: Request) {
 
     console.log('Processing items:', items);
 
-    // Get the first variant ID for each product
+    // Get variant IDs for each product
     const lineItems = await Promise.all(items.map(async (item) => {
       try {
-        console.log('Processing item:', item);
+        console.log('Getting variant for product:', item.productId);
         
         // Get the first variant of the product
         const response = await client.request<ProductVariantResponse>(GET_PRODUCT_VARIANT, {
@@ -159,14 +158,14 @@ export async function POST(request: Request) {
           variantId: variant.id
         };
       } catch (error) {
-        console.error('Error processing item:', error);
+        console.error('Error getting variant:', error);
         throw error;
       }
     }));
 
-    console.log('Created line items:', lineItems);
+    console.log('Formatted line items for Shopify:', lineItems);
 
-    // Create checkout in Shopify
+    // Create checkout in Shopify using GraphQL mutation
     const response = await client.request<CheckoutResponse>(CREATE_CHECKOUT, {
       input: {
         lineItems
