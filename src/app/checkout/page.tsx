@@ -31,10 +31,20 @@ export default function CheckoutPage() {
         })
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error('Error parsing response:', jsonError);
+        throw new Error('Invalid response from server. Please try again.');
+      }
 
       if (!response.ok) {
         throw new Error(data.error || 'Failed to create checkout');
+      }
+
+      if (!data.checkout?.webUrl) {
+        throw new Error('No checkout URL received from server');
       }
 
       console.log('Checkout created:', data);
@@ -43,14 +53,10 @@ export default function CheckoutPage() {
       clearCart();
       
       // Redirect to Shopify checkout
-      if (data.checkout?.webUrl) {
-        window.location.href = data.checkout.webUrl;
-      } else {
-        throw new Error('No checkout URL received');
-      }
+      window.location.href = data.checkout.webUrl;
     } catch (err) {
       console.error('Checkout error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create checkout');
+      setError(err instanceof Error ? err.message : 'Failed to create checkout. Please try again.');
     } finally {
       setIsLoading(false);
     }

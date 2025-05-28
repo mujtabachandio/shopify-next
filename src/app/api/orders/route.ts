@@ -85,16 +85,43 @@ const CREATE_CHECKOUT = `
   }
 `;
 
+export async function GET() {
+  return NextResponse.json(
+    { error: 'Method not allowed. Please use POST for creating orders.' },
+    { status: 405 }
+  );
+}
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (error) {
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
+
     const { items, total } = body;
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return NextResponse.json(
+        { error: 'No items provided in the order' },
+        { status: 400 }
+      );
+    }
 
     console.log('Received order request:', { items, total });
 
     // Get the first variant ID for each product
     const lineItems = await Promise.all(items.map(async (item: CartItem) => {
       console.log('Processing item:', item);
+
+      if (!item.productId) {
+        throw new Error(`Missing product ID for item: ${item.title}`);
+      }
 
       try {
         // Get the first variant of the product
@@ -117,7 +144,7 @@ export async function POST(request: Request) {
         };
       } catch (error) {
         console.error('Error processing item:', error);
-        throw error;
+        throw new Error(`Failed to process item ${item.title}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }));
 
@@ -135,7 +162,7 @@ export async function POST(request: Request) {
     const checkoutCreate = response.checkoutCreate;
     if (!checkoutCreate) {
       return NextResponse.json(
-        { error: 'Failed to create checkout' },
+        { error: 'Failed to create checkout - no response from Shopify' },
         { status: 500 }
       );
     }
@@ -146,6 +173,13 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: userErrors.map((e: { message: string }) => e.message).join(', ') },
         { status: 400 }
+      );
+    }
+
+    if (!checkoutCreate.checkout?.webUrl) {
+      return NextResponse.json(
+        { error: 'No checkout URL received from Shopify' },
+        { status: 500 }
       );
     }
 
