@@ -14,65 +14,50 @@ export default function CheckoutPage() {
     setError(null);
 
     try {
-      // Format items for Shopify cart
-      const formattedItems = items.map(item => ({
-        productId: item.id.startsWith('gid://') ? item.id : `gid://shopify/ProductVariant/${item.id.split('/').pop()}`,
-        title: item.title,
-        quantity: item.quantity,
-        price: item.price
-      }));
-
-      console.log('Sending cart request with items:', formattedItems);
-
-      // Create a cart in Shopify
-      const response = await fetch('/api/orders/', {
+      // Create a checkout in Shopify
+      const response = await fetch('/api/orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          items: formattedItems,
-          total: items.reduce((sum, item) => sum + (item.price.amount * item.quantity), 0)
+          items: items.map(item => ({
+            productId: item.id,
+            title: item.title,
+            price: item.price,
+            quantity: item.quantity
+          })),
+          total: items.reduce((sum, item) => sum + (item.price.amount * item.quantity), 0),
+          cartId: localStorage.getItem('cartId') // Include cart ID if available
         })
       });
 
-      // First get the raw text response
-      const text = await response.text();
-      console.log('Raw response:', text);
-
       let data;
       try {
-        data = JSON.parse(text);
+        data = await response.json();
       } catch (jsonError) {
         console.error('Error parsing response:', jsonError);
-        console.error('Raw response text:', text);
         throw new Error('Invalid response from server. Please try again.');
       }
 
       if (!response.ok) {
-        console.error('Server error:', {
-          status: response.status,
-          statusText: response.statusText,
-          data
-        });
-        throw new Error(data.error || 'Failed to create cart');
+        throw new Error(data.error || 'Failed to create checkout');
       }
 
-      if (!data.cart?.checkoutUrl) {
-        console.error('No checkout URL in response:', data);
+      if (!data.checkout?.webUrl) {
         throw new Error('No checkout URL received from server');
       }
 
-      console.log('Cart created:', data);
+      console.log('Checkout created:', data);
       
-      // Clear the cart after successful cart creation
+      // Clear the cart after successful checkout creation
       clearCart();
       
       // Redirect to Shopify checkout
-      window.location.href = data.cart.checkoutUrl;
+      window.location.href = data.checkout.webUrl;
     } catch (err) {
-      console.error('Cart error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to create cart. Please try again.');
+      console.error('Checkout error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create checkout. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -131,7 +116,7 @@ export default function CheckoutPage() {
                   : 'bg-primary text-primary-foreground hover:bg-primary/90'
               }`}
             >
-              {isLoading ? 'Creating Cart...' : 'Proceed to Checkout'}
+              {isLoading ? 'Creating Checkout...' : 'Proceed to Checkout'}
             </button>
           </div>
         </motion.div>

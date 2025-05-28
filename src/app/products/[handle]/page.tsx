@@ -17,23 +17,10 @@ interface PageProps {
 }
 
 export async function generateStaticParams() {
-  try {
-    // Check if we're in a build environment
-    if (process.env.NODE_ENV === 'production') {
-      // During build time, return a mock handle to prevent build failure
-      return [{ handle: 'placeholder' }];
-    }
-
-    const { products } = await getAllProducts();
-    return products.map((product: ShopifyProduct) => ({
-      handle: product.handle,
-    }));
-  } catch (error) {
-    // During build time, if environment variables are not set,
-    // return a mock handle to prevent build failure
-    console.warn('Failed to generate static params:', error);
-    return [{ handle: 'placeholder' }];
-  }
+  const { products } = await getAllProducts();
+  return products.map((product: ShopifyProduct) => ({
+    handle: product.handle,
+  }));
 }
 
 const transformedMedia = (product: ShopifyProduct): Media[] => {
@@ -49,19 +36,14 @@ const transformedMedia = (product: ShopifyProduct): Media[] => {
 };
 
 export default async function ProductPage({ params }: PageProps) {
-  try {
-    const product = await getProduct(params.handle);
-    if (!product) {
-      return <div>Product not found</div>;
-    }
-    const media = transformedMedia(product);
-    return (
-      <div>
-        <ProductMediaReel media={media} />
-      </div>
-    );
-  } catch (error) {
-    console.error('Error loading product:', error);
-    return <div>Error loading product. Please try again later.</div>;
+  const product = await getProduct(params.handle);
+  if (!product) {
+    return <div>Product not found</div>;
   }
+  const media = transformedMedia(product);
+  return (
+    <div>
+      <ProductMediaReel media={media} />
+    </div>
+  );
 } 

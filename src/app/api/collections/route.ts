@@ -15,45 +15,17 @@ const getYouTubeEmbedUrl = (url: string) => {
 
 export async function GET() {
   try {
-    // Check if environment variables are set
-    if (!process.env.SHOPIFY_STORE_DOMAIN || !process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN) {
-      console.error('Missing required environment variables:', {
-        storeDomain: process.env.SHOPIFY_STORE_DOMAIN ? 'set' : 'missing',
-        accessToken: process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN ? 'set' : 'missing'
-      });
-      return NextResponse.json(
-        { 
-          error: 'Shopify configuration is not set up properly',
-          details: 'Missing required environment variables'
-        },
-        { status: 500 }
-      );
-    }
-
-    console.log('Fetching collections with domain:', process.env.SHOPIFY_STORE_DOMAIN);
     const response = await getCollections(5);
-    
-    if (!response || !response.collections) {
-      console.error('Invalid response from Shopify:', response);
-      return NextResponse.json(
-        { 
-          error: 'Invalid response from Shopify',
-          details: 'Response or collections array is missing'
-        },
-        { status: 500 }
-      );
-    }
-
-    console.log(`Successfully fetched ${response.collections.length} collections`);
+    // console.log('Raw Shopify response:', JSON.stringify(response, null, 2));
     
     // Process collections to ensure proper image URLs
     const processedCollections = response.collections.map((collection) => {
-      console.log(`Processing collection: ${collection.title}`);
+      // console.log(`Processing collection: ${collection.title}`);
       
       return {
         ...collection,
         products: collection.products.map((product) => {
-          console.log(`Processing product: ${product.title}`);
+          // console.log(`Processing product: ${product.title}`);
           
           let mediaType = 'IMAGE';
           let videoUrl = null;
@@ -62,7 +34,7 @@ export async function GET() {
           // Check all media items to determine the type and get URLs
           if (product.media?.length > 0) {
             const firstMedia = product.media[0];
-            console.log('First media item:', firstMedia);
+            // console.log('First media item:', firstMedia);
 
             switch (firstMedia.type) {
               case 'IMAGE':
@@ -99,27 +71,24 @@ export async function GET() {
             }
           };
           
-          console.log('Processed product:', {
-            title: processedProduct.title,
-            id: processedProduct.id,
-            price: processedProduct.price,
-            mediaType: processedProduct.mediaType
+          console.log('Product data from Shopify:', {
+            title: product.title,
+            id: product.id,
+            price: product.price
           });
 
+          console.log('Processed product:', processedProduct);
           return processedProduct;
         }),
       };
     });
 
-    console.log('Successfully processed all collections');
+    console.log('Final processed collections:', JSON.stringify(processedCollections, null, 2));
     return NextResponse.json({ collections: processedCollections });
   } catch (error) {
     console.error('Error in collections API:', error);
     return NextResponse.json(
-      { 
-        error: 'Failed to fetch collections',
-        details: error instanceof Error ? error.message : 'Unknown error occurred'
-      },
+      { error: 'Failed to fetch collections' },
       { status: 500 }
     );
   }
