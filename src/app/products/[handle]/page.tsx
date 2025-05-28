@@ -17,10 +17,17 @@ interface PageProps {
 }
 
 export async function generateStaticParams() {
-  const { products } = await getAllProducts();
-  return products.map((product: ShopifyProduct) => ({
-    handle: product.handle,
-  }));
+  try {
+    const { products } = await getAllProducts();
+    return products.map((product: ShopifyProduct) => ({
+      handle: product.handle,
+    }));
+  } catch (error) {
+    // During build time, if environment variables are not set,
+    // return an empty array to prevent build failure
+    console.warn('Failed to generate static params:', error);
+    return [];
+  }
 }
 
 const transformedMedia = (product: ShopifyProduct): Media[] => {
@@ -36,14 +43,19 @@ const transformedMedia = (product: ShopifyProduct): Media[] => {
 };
 
 export default async function ProductPage({ params }: PageProps) {
-  const product = await getProduct(params.handle);
-  if (!product) {
-    return <div>Product not found</div>;
+  try {
+    const product = await getProduct(params.handle);
+    if (!product) {
+      return <div>Product not found</div>;
+    }
+    const media = transformedMedia(product);
+    return (
+      <div>
+        <ProductMediaReel media={media} />
+      </div>
+    );
+  } catch (error) {
+    console.error('Error loading product:', error);
+    return <div>Error loading product. Please try again later.</div>;
   }
-  const media = transformedMedia(product);
-  return (
-    <div>
-      <ProductMediaReel media={media} />
-    </div>
-  );
 } 

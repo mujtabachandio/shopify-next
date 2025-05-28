@@ -15,6 +15,15 @@ const getYouTubeEmbedUrl = (url: string) => {
 
 export async function GET() {
   try {
+    // Check if environment variables are set
+    if (!process.env.SHOPIFY_STORE_DOMAIN || !process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN) {
+      console.error('Missing required environment variables');
+      return NextResponse.json(
+        { error: 'Shopify configuration is not set up properly' },
+        { status: 500 }
+      );
+    }
+
     const response = await getCollections(5);
     // console.log('Raw Shopify response:', JSON.stringify(response, null, 2));
     
