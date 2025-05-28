@@ -1,25 +1,31 @@
 import { GraphQLClient } from 'graphql-request';
 import { GET_COLLECTIONS, GET_PRODUCT, GET_PRODUCTS_BY_COLLECTION, GET_ALL_PRODUCTS } from './shopify-queries';
 
-// Validate required environment variables
-const SHOPIFY_STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN;
-const SHOPIFY_STOREFRONT_ACCESS_TOKEN = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN;
-
-if (!SHOPIFY_STORE_DOMAIN) {
-  throw new Error('SHOPIFY_STORE_DOMAIN environment variable is not set');
-}
-
-if (!SHOPIFY_STOREFRONT_ACCESS_TOKEN) {
-  throw new Error('SHOPIFY_STOREFRONT_ACCESS_TOKEN environment variable is not set');
-}
-
 // Initialize Shopify Storefront GraphQL client
-const client = new GraphQLClient(`https://${SHOPIFY_STORE_DOMAIN}/api/2024-01/graphql.json`, {
-  headers: {
-    'X-Shopify-Storefront-Access-Token': SHOPIFY_STOREFRONT_ACCESS_TOKEN,
-    'Content-Type': 'application/json',
-  },
-});
+const getClient = () => {
+  const SHOPIFY_STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN;
+  const SHOPIFY_STOREFRONT_ACCESS_TOKEN = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN;
+
+  if (!SHOPIFY_STORE_DOMAIN || !SHOPIFY_STOREFRONT_ACCESS_TOKEN) {
+    // During build time, return a mock client that throws a more descriptive error
+    return {
+      request: async () => {
+        throw new Error(
+          'Shopify environment variables are not set. Please ensure SHOPIFY_STORE_DOMAIN and SHOPIFY_STOREFRONT_ACCESS_TOKEN are configured in your environment.'
+        );
+      }
+    };
+  }
+
+  return new GraphQLClient(`https://${SHOPIFY_STORE_DOMAIN}/api/2024-01/graphql.json`, {
+    headers: {
+      'X-Shopify-Storefront-Access-Token': SHOPIFY_STOREFRONT_ACCESS_TOKEN,
+      'Content-Type': 'application/json',
+    },
+  });
+};
+
+const client = getClient();
 
 export interface Media {
   type: string;
