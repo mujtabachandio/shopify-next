@@ -4,6 +4,14 @@ import { useCart } from "@/context/CartContext";
 import { motion } from "framer-motion";
 import { useState } from "react";
 
+interface CheckoutResponse {
+  success: boolean;
+  checkout?: {
+    webUrl: string;
+  };
+  error?: string;
+}
+
 export default function CheckoutPage() {
   const { items, clearCart } = useCart();
   const [isLoading, setIsLoading] = useState(false);
@@ -14,6 +22,10 @@ export default function CheckoutPage() {
     setError(null);
 
     try {
+      if (!items || items.length === 0) {
+        throw new Error('Cart is empty');
+      }
+
       // Create a checkout in Shopify
       const response = await fetch('/api/orders', {
         method: 'POST',
@@ -31,23 +43,23 @@ export default function CheckoutPage() {
         })
       });
 
-      const data = await response.json();
+      const data: CheckoutResponse = await response.json().catch(() => {
+        throw new Error('Failed to parse response from server');
+      });
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create checkout');
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || `HTTP error! status: ${response.status}`);
       }
 
-      console.log('Checkout created:', data);
+      if (!data.checkout?.webUrl) {
+        throw new Error('No checkout URL received from server');
+      }
       
       // Clear the cart after successful checkout creation
       clearCart();
       
       // Redirect to Shopify checkout
-      if (data.checkout?.webUrl) {
-        window.location.href = data.checkout.webUrl;
-      } else {
-        throw new Error('No checkout URL received');
-      }
+      window.location.href = data.checkout.webUrl;
     } catch (err) {
       console.error('Checkout error:', err);
       setError(err instanceof Error ? err.message : 'Failed to create checkout');
@@ -109,7 +121,17 @@ export default function CheckoutPage() {
                   : 'bg-primary text-primary-foreground hover:bg-primary/90'
               }`}
             >
-              {isLoading ? 'Creating Checkout...' : 'Proceed to Checkout'}
+              {isLoading ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Creating Checkout...
+                </span>
+              ) : (
+                'Proceed to Checkout'
+              )}
             </button>
           </div>
         </motion.div>

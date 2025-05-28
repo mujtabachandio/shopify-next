@@ -17,12 +17,12 @@ interface VideoCardProps {
   brandName: string;
   variantId?: string;
   variants?: Array<{
-    id: string;
-    title: string;
-    price: {
-      amount: number;
-      currencyCode: string;
-    };
+  id: string;
+  title: string;
+  price: {
+    amount: number;
+    currencyCode: string;
+  };
   }>;
 }
 
@@ -100,7 +100,7 @@ export default function VideoCard({
       videoUrl,
       thumbnail
     };
-
+    
     addItem(cartItem);
   };
 
