@@ -1,4 +1,6 @@
-export const GET_COLLECTIONS = `
+import { gql } from 'graphql-request';
+
+export const GET_COLLECTIONS = gql`
   query GetCollections($first: Int!, $after: String) {
     collections(first: $first, after: $after) {
       pageInfo {
@@ -46,6 +48,23 @@ export const GET_COLLECTIONS = `
                     }
                   }
                 }
+                variants(first: 1) {
+                  edges {
+                    node {
+                      id
+                      title
+                      price {
+                        amount
+                        currencyCode
+                      }
+                      availableForSale
+                      selectedOptions {
+                        name
+                        value
+                      }
+                    }
+                  }
+                }
                 priceRange {
                   minVariantPrice {
                     amount
@@ -61,7 +80,7 @@ export const GET_COLLECTIONS = `
   }
 `;
 
-export const GET_PRODUCT = `
+export const GET_PRODUCT = gql`
   query GetProduct($handle: String!) {
     productByHandle(handle: $handle) {
       id
@@ -87,11 +106,6 @@ export const GET_PRODUCT = `
                 height
                 width
               }
-              preview {
-                image {
-                  url
-                }
-              }
             }
           }
         }
@@ -116,7 +130,7 @@ export const GET_PRODUCT = `
   }
 `;
 
-export const GET_PRODUCTS_BY_COLLECTION = `
+export const GET_PRODUCTS_BY_COLLECTION = gql`
   query GetProductsByCollection($handle: String!, $first: Int!, $after: String) {
     collectionByHandle(handle: $handle) {
       id
@@ -161,6 +175,23 @@ export const GET_PRODUCTS_BY_COLLECTION = `
                 }
               }
             }
+            variants(first: 1) {
+              edges {
+                node {
+                  id
+                  title
+                  price {
+                    amount
+                    currencyCode
+                  }
+                  availableForSale
+                  selectedOptions {
+                    name
+                    value
+                  }
+                }
+              }
+            }
             priceRange {
               minVariantPrice {
                 amount
@@ -174,7 +205,7 @@ export const GET_PRODUCTS_BY_COLLECTION = `
   }
 `;
 
-export const GET_ALL_PRODUCTS = `
+export const GET_ALL_PRODUCTS = gql`
   query GetAllProducts($first: Int!, $after: String) {
     products(first: $first, after: $after) {
       pageInfo {
@@ -187,10 +218,27 @@ export const GET_ALL_PRODUCTS = `
           title
           handle
           description
+          tags
+          collections(first: 5) {
+            edges {
+              node {
+                title
+                handle
+              }
+            }
+          }
           media(first: 10) {
             edges {
               node {
                 mediaContentType
+                ... on MediaImage {
+                  image {
+                    url
+                    altText
+                    width
+                    height
+                  }
+                }
                 ... on Video {
                   sources {
                     url
@@ -204,13 +252,22 @@ export const GET_ALL_PRODUCTS = `
                   host
                   originUrl
                 }
-                ... on MediaImage {
-                  image {
-                    url
-                    altText
-                    width
-                    height
-                  }
+              }
+            }
+          }
+          variants(first: 1) {
+            edges {
+              node {
+                id
+                title
+                price {
+                  amount
+                  currencyCode
+                }
+                availableForSale
+                selectedOptions {
+                  name
+                  value
                 }
               }
             }

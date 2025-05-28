@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "./providers";
 import { CartProvider } from "@/context/CartContext";
+import { AuthProvider } from '@/context/AuthContext';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,11 +20,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} min-h-screen bg-background text-foreground`}>
-        <ThemeProvider>
-          <CartProvider>
-            {children}
-          </CartProvider>
-        </ThemeProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            <CartProvider>
+              {children}
+            </CartProvider>
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   );

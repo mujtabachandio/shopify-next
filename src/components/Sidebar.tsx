@@ -1,5 +1,5 @@
 "use client";
-import { FaHome, FaShoppingBag, FaShoppingCart, FaInfoCircle, FaCrown, FaSun, FaSnowflake, FaMale, FaChild, FaTag, FaBars, FaTimes } from "react-icons/fa";
+import { FaHome, FaShoppingBag, FaShoppingCart, FaInfoCircle, FaCrown, FaSun, FaSnowflake, FaMale, FaChild, FaTag, FaBars, FaTimes, FaFilter } from "react-icons/fa";
 import Link from "next/link";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useState, Suspense } from "react";
@@ -54,6 +54,12 @@ function SidebarContent() {
     router.push(`${pathname}?${params.toString()}`);
   };
 
+  const clearFilter = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('category');
+    router.push(`${pathname}?${params.toString()}`);
+  };
+
   return (
     <div className="p-4">
       <nav className="space-y-6">
@@ -81,7 +87,18 @@ function SidebarContent() {
 
         {/* Categories */}
         <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-foreground-muted px-4 mb-2">Categories</h3>
+          <div className="flex justify-between items-center px-4 mb-2">
+            <h3 className="text-sm font-semibold text-foreground-muted">Categories</h3>
+            {currentCategory && (
+              <button
+                onClick={clearFilter}
+                className="flex items-center space-x-2 text-sm text-primary hover:text-primary/80 transition-colors"
+              >
+                <FaFilter className="text-xs" />
+                <span>Clear Filter</span>
+              </button>
+            )}
+          </div>
           {categories.map((category) => {
             const isActive = currentCategory === category.value;
             return (

@@ -6,8 +6,6 @@ import VideoCard from "@/components/VideoCard";
 import { getAllProducts } from "@/lib/shopify-api";
 import { useInView } from "react-intersection-observer";
 import BottomNav from "@/components/BottomNav";
-import { useTheme } from "./providers";
-import { FaSun, FaMoon } from "react-icons/fa";
 
 interface ShopifyProduct {
   id: string;
@@ -25,6 +23,22 @@ interface ShopifyProduct {
     originUrl?: string;
     host?: string;
   }>;
+  variants?: {
+    edges: Array<{
+      node: {
+        id: string;
+        price: {
+          amount: string;
+          currencyCode: string;
+        };
+        availableForSale: boolean;
+        selectedOptions: Array<{
+          name: string;
+          value: string;
+        }>;
+      };
+    }>;
+  };
 }
 
 interface Product extends ShopifyProduct {
@@ -35,6 +49,7 @@ interface Product extends ShopifyProduct {
   brandName?: string;
   thumbnail: string;
   hasVideo: boolean;
+  variantId: string;
 }
 
 interface Collection {
@@ -61,7 +76,6 @@ export default function HomePage() {
   const [endCursor, setEndCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const { ref, inView } = useInView();
-  const { theme, toggleTheme } = useTheme();
 
   const getVideoUrl = useCallback((url: string, host?: string): string => {
     if (!url) return '';
@@ -149,6 +163,10 @@ export default function HomePage() {
           videoUrl = videoMedia.videoUrl;
         }
 
+        // Get the first available variant or use a default
+        const firstVariant = product.variants?.edges?.[0]?.node;
+        const variantId = firstVariant?.id || '';
+
         const processedProduct: ProcessedProduct = {
           ...product,
           videoUrl,
@@ -156,7 +174,8 @@ export default function HomePage() {
           hasVideo: !!videoUrl,
           image: thumbnail,
           mediaType: videoUrl ? 'VIDEO' : 'IMAGE',
-          category: 'Uncategorized'
+          category: 'Uncategorized',
+          variantId
         };
 
         return processedProduct;
@@ -231,15 +250,13 @@ export default function HomePage() {
                   <div key={product.id} className="h-screen">
                     <VideoCard
                       id={product.id}
+                      variantId={product.variantId}
                       title={product.title}
                       videoUrl={product.videoUrl}
                       thumbnail={product.thumbnail}
                       description={product.description}
                       price={product.price}
                       brandName={product.brandName || ''}
-                      likes={Math.floor(Math.random() * 1000)}
-                      comments={Math.floor(Math.random() * 100)}
-                      shares={Math.floor(Math.random() * 50)}
                     />
                   </div>
                 ))}
@@ -257,29 +274,6 @@ export default function HomePage() {
         </main>
       </div>
       <BottomNav />
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex justify-end">
-          <button
-            onClick={toggleTheme}
-            className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-            aria-label="Toggle theme"
-          >
-            {theme === 'light' ? (
-              <>
-                <FaMoon className="text-lg" />
-                <span>Dark Mode</span>
-              </>
-            ) : (
-              <>
-                <FaSun className="text-lg" />
-                <span>Light Mode</span>
-              </>
-            )}
-          </button>
-        </div>
-        <h1 className="text-4xl font-bold mt-8">Welcome to Sasta Bazar</h1>
-        <p className="text-lg mt-4">Current theme: {theme}</p>
-      </div>
     </div>
   );
 }

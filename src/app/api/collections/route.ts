@@ -16,16 +16,16 @@ const getYouTubeEmbedUrl = (url: string) => {
 export async function GET() {
   try {
     const response = await getCollections(5);
-    console.log('Raw Shopify response:', JSON.stringify(response, null, 2));
+    // console.log('Raw Shopify response:', JSON.stringify(response, null, 2));
     
     // Process collections to ensure proper image URLs
     const processedCollections = response.collections.map((collection) => {
-      console.log(`Processing collection: ${collection.title}`);
+      // console.log(`Processing collection: ${collection.title}`);
       
       return {
         ...collection,
         products: collection.products.map((product) => {
-          console.log(`Processing product: ${product.title}`);
+          // console.log(`Processing product: ${product.title}`);
           
           let mediaType = 'IMAGE';
           let videoUrl = null;
@@ -34,7 +34,7 @@ export async function GET() {
           // Check all media items to determine the type and get URLs
           if (product.media?.length > 0) {
             const firstMedia = product.media[0];
-            console.log('First media item:', firstMedia);
+            // console.log('First media item:', firstMedia);
 
             switch (firstMedia.type) {
               case 'IMAGE':
@@ -65,9 +65,18 @@ export async function GET() {
             image: imageUrl || '/placeholder.png',
             videoUrl,
             category: collection.title,
-            price: product.price?.amount?.toString() || '0',
+            price: {
+              amount: parseFloat(product.price?.amount?.toString() || '0'),
+              currencyCode: product.price?.currencyCode || 'PKR'
+            }
           };
           
+          console.log('Product data from Shopify:', {
+            title: product.title,
+            id: product.id,
+            price: product.price
+          });
+
           console.log('Processed product:', processedProduct);
           return processedProduct;
         }),

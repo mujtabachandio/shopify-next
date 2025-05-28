@@ -34,10 +34,28 @@ export interface Product {
   title: string;
   handle: string;
   description: string;
+  status?: string;
   media: Media[];
   price: {
     amount: number;
     currencyCode: string;
+  };
+  variants: {
+    edges: Array<{
+      node: {
+        id: string;
+        title: string;
+        price: {
+          amount: string;
+          currencyCode: string;
+        };
+        availableForSale: boolean;
+        selectedOptions: Array<{
+          name: string;
+          value: string;
+        }>;
+      };
+    }>;
   };
 }
 
@@ -46,7 +64,35 @@ export interface Collection {
   title: string;
   handle: string;
   description: string;
-  products: Product[];
+  products: Array<{
+    id: string;
+    title: string;
+    handle: string;
+    description: string;
+    status: string;
+    media: Media[];
+    price: {
+      amount: number;
+      currencyCode: string;
+    };
+    variants: {
+      edges: Array<{
+        node: {
+          id: string;
+          title: string;
+          price: {
+            amount: string;
+            currencyCode: string;
+          };
+          availableForSale: boolean;
+          selectedOptions: Array<{
+            name: string;
+            value: string;
+          }>;
+        };
+      }>;
+    };
+  }>;
 }
 
 export interface CollectionsResponse {
@@ -78,6 +124,23 @@ interface ShopifyResponse {
       originUrl?: string;
       host?: string;
     }>;
+    variants: {
+      edges: Array<{
+        node: {
+          id: string;
+          title: string;
+          price: {
+            amount: string;
+            currencyCode: string;
+          };
+          availableForSale: boolean;
+          selectedOptions: Array<{
+            name: string;
+            value: string;
+          }>;
+        };
+      }>;
+    };
   }>;
   hasNextPage: boolean;
   endCursor?: string;
@@ -103,6 +166,23 @@ interface GraphQLResponse {
               media: {
                 edges: Array<{
                   node: GraphQLMediaNode;
+                }>;
+              };
+              variants: {
+                edges: Array<{
+                  node: {
+                    id: string;
+                    title: string;
+                    price: {
+                      amount: string;
+                      currencyCode: string;
+                    };
+                    availableForSale: boolean;
+                    selectedOptions: Array<{
+                      name: string;
+                      value: string;
+                    }>;
+                  };
                 }>;
               };
               priceRange: {
@@ -137,10 +217,17 @@ interface GraphQLProductResponse {
     variants: {
       edges: Array<{
         node: {
+          id: string;
+          title: string;
           price: {
             amount: string;
             currencyCode: string;
           };
+          availableForSale: boolean;
+          selectedOptions: Array<{
+            name: string;
+            value: string;
+          }>;
         };
       }>;
     };
@@ -165,6 +252,23 @@ interface GraphQLCollectionResponse {
                   mimeType: string;
                   height: number;
                   width: number;
+                }>;
+              };
+            }>;
+          };
+          variants: {
+            edges: Array<{
+              node: {
+                id: string;
+                title: string;
+                price: {
+                  amount: string;
+                  currencyCode: string;
+                };
+                availableForSale: boolean;
+                selectedOptions: Array<{
+                  name: string;
+                  value: string;
                 }>;
               };
             }>;
@@ -196,6 +300,23 @@ interface GraphQLProductsResponse {
         media: {
           edges: Array<{
             node: GraphQLMediaNode;
+          }>;
+        };
+        variants: {
+          edges: Array<{
+            node: {
+              id: string;
+              title: string;
+              price: {
+                amount: string;
+                currencyCode: string;
+              };
+              availableForSale: boolean;
+              selectedOptions: Array<{
+                name: string;
+                value: string;
+              }>;
+            };
           }>;
         };
         priceRange: {
@@ -314,6 +435,7 @@ export async function getCollections(first: number = 5, after?: string): Promise
             amount: parseFloat(product.priceRange.minVariantPrice.amount),
             currencyCode: product.priceRange.minVariantPrice.currencyCode,
           },
+          variants: product.variants
         };
       });
 
@@ -362,6 +484,9 @@ export async function getProduct(handle: string): Promise<Product | null> {
         amount: parseFloat(product.variants.edges[0].node.price.amount),
         currencyCode: product.variants.edges[0].node.price.currencyCode,
       },
+      variants: {
+        edges: product.variants.edges
+      }
     };
   } catch (error) {
     console.error('Error fetching product:', error);
@@ -408,6 +533,9 @@ export async function getProductsByCollection(
           amount: parseFloat(node.priceRange.minVariantPrice.amount),
           currencyCode: node.priceRange.minVariantPrice.currencyCode,
         },
+        variants: {
+          edges: node.variants.edges
+        }
       };
     });
 
@@ -489,6 +617,13 @@ export async function getAllProducts(first: number = 50, after?: string): Promis
         return mediaItem;
       });
 
+      // Get the first available variant
+      const firstVariant = node.variants.edges[0]?.node;
+      if (!firstVariant) {
+        console.error('No variant found for product:', node.title);
+        return null;
+      }
+
       return {
         id: node.id,
         title: node.title,
@@ -496,11 +631,14 @@ export async function getAllProducts(first: number = 50, after?: string): Promis
         description: node.description,
         media,
         price: {
-          amount: parseFloat(node.priceRange.minVariantPrice.amount),
-          currencyCode: node.priceRange.minVariantPrice.currencyCode,
+          amount: parseFloat(firstVariant.price.amount),
+          currencyCode: firstVariant.price.currencyCode,
         },
+        variants: {
+          edges: node.variants.edges
+        }
       };
-    });
+    }).filter((product): product is Product => product !== null);
 
     return {
       products,
@@ -538,6 +676,9 @@ export async function getProductByHandle(handle: string): Promise<ShopifyRespons
             amount: parseFloat(product.variants.edges[0].node.price.amount),
             currencyCode: product.variants.edges[0].node.price.currencyCode,
           },
+          variants: {
+            edges: product.variants.edges
+          }
         }
       ],
       hasNextPage: false,

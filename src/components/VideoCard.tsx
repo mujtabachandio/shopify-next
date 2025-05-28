@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useCart } from "@/context/CartContext";
-import { ChevronDownIcon, HeartIcon, ChatBubbleLeftIcon, ShareIcon, ShoppingCartIcon, CheckIcon } from "@heroicons/react/24/outline";
+import { ChevronDownIcon, ShoppingCartIcon } from "@heroicons/react/24/outline";
 
 interface VideoCardProps {
   id: string;
@@ -15,19 +15,15 @@ interface VideoCardProps {
     currencyCode: string;
   };
   brandName: string;
-  likes: number;
-  comments: number;
-  shares: number;
-}
-
-interface CartItem {
-  id: string;
-  title: string;
-  price: {
-    amount: number;
-    currencyCode: string;
-  };
-  quantity: number;
+  variantId?: string;
+  variants?: Array<{
+    id: string;
+    title: string;
+    price: {
+      amount: number;
+      currencyCode: string;
+    };
+  }>;
 }
 
 export default function VideoCard({
@@ -38,17 +34,12 @@ export default function VideoCard({
   description,
   price,
   brandName,
-  likes,
-  comments,
-  shares,
 }: VideoCardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [showDescription, setShowDescription] = useState(false);
-  const [showAdded, setShowAdded] = useState(false);
-  const { addToCart, items } = useCart();
+  const { addItem } = useCart();
   const [isVisible, setIsVisible] = useState(false);
 
-  const isInCart = items.some((item: CartItem) => item.id === id);
   const isYouTubeVideo = videoUrl && (videoUrl.includes('youtube.com/embed') || videoUrl.includes('youtu.be') || videoUrl.includes('youtube.com/watch'));
 
   // Extract YouTube video ID
@@ -76,10 +67,8 @@ export default function VideoCard({
         (entries) => {
           entries.forEach((entry) => {
             if (entry.isIntersecting) {
-              console.log('Video in view:', title, 'Watch URL:', watchUrl);
               setIsVisible(true);
             } else {
-              console.log('Video out of view:', title);
               setIsVisible(false);
             }
           });
@@ -103,14 +92,16 @@ export default function VideoCard({
   }, [title, videoId, isYouTubeVideo, watchUrl]);
 
   const handleAddToCart = () => {
-    const cartItem: Omit<CartItem, 'quantity'> = {
-      id,
+    const cartItem = {
+      id: id,
       title,
       price,
+      quantity: 1,
+      videoUrl,
+      thumbnail
     };
-    addToCart(cartItem);
-    setShowAdded(true);
-    setTimeout(() => setShowAdded(false), 2000);
+
+    addItem(cartItem);
   };
 
   // If this is not a video, just render the image
@@ -144,30 +135,11 @@ export default function VideoCard({
                 <button
                   onClick={handleAddToCart}
                   className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center space-x-2 ${
-                    showAdded 
-                      ? 'bg-green-500/20 text-green-400' 
-                      : isInCart
-                      ? 'bg-white/20 text-white'
-                      : 'bg-white text-black hover:bg-white/90'
+                    showDescription ? 'bg-green-500/20 text-green-400' : 'bg-white text-black hover:bg-white/90'
                   }`}
-                  disabled={isInCart}
                 >
-                  {showAdded ? (
-                    <>
-                      <CheckIcon className="w-5 h-5" />
-                      <span>Added to Cart</span>
-                    </>
-                  ) : isInCart ? (
-                    <>
-                      <ShoppingCartIcon className="w-5 h-5" />
-                      <span>In Cart</span>
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingCartIcon className="w-5 h-5" />
-                      <span>Add to Cart</span>
-                    </>
-                  )}
+                  <ShoppingCartIcon className="w-5 h-5" />
+                  <span>Add to Cart</span>
                 </button>
               </div>
             </div>
@@ -195,36 +167,7 @@ export default function VideoCard({
                 </p>
               </div>
             )}
-
-            {/* Interaction Stats */}
-            <div className="flex items-center space-x-8 pt-2">
-              <div className="flex items-center space-x-2">
-                <HeartIcon className="w-5 h-5 text-white/70" />
-                <span className="text-sm text-white/70">{likes.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <ChatBubbleLeftIcon className="w-5 h-5 text-white/70" />
-                <span className="text-sm text-white/70">{comments.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <ShareIcon className="w-5 h-5 text-white/70" />
-                <span className="text-sm text-white/70">{shares.toLocaleString()}</span>
-              </div>
-            </div>
           </div>
-        </div>
-
-        {/* Right Side Actions */}
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col items-center space-y-6">
-          <button className="p-3 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all duration-300 transform hover:scale-110">
-            <HeartIcon className="w-6 h-6 text-white" />
-          </button>
-          <button className="p-3 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all duration-300 transform hover:scale-110">
-            <ChatBubbleLeftIcon className="w-6 h-6 text-white" />
-          </button>
-          <button className="p-3 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all duration-300 transform hover:scale-110">
-            <ShareIcon className="w-6 h-6 text-white" />
-          </button>
         </div>
       </div>
     );
@@ -270,30 +213,11 @@ export default function VideoCard({
               <button
                 onClick={handleAddToCart}
                 className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center space-x-2 ${
-                  showAdded 
-                    ? 'bg-green-500/20 text-green-400' 
-                    : isInCart
-                    ? 'bg-white/20 text-white'
-                    : 'bg-white text-black hover:bg-white/90'
+                  showDescription ? 'bg-green-500/20 text-green-400' : 'bg-white text-black hover:bg-white/90'
                 }`}
-                disabled={isInCart}
               >
-                {showAdded ? (
-                  <>
-                    <CheckIcon className="w-5 h-5" />
-                    <span>Added to Cart</span>
-                  </>
-                ) : isInCart ? (
-                  <>
-                    <ShoppingCartIcon className="w-5 h-5" />
-                    <span>In Cart</span>
-                  </>
-                ) : (
-                  <>
-                    <ShoppingCartIcon className="w-5 h-5" />
-                    <span>Add to Cart</span>
-                  </>
-                )}
+                <ShoppingCartIcon className="w-5 h-5" />
+                <span>Add to Cart</span>
               </button>
             </div>
           </div>
@@ -321,39 +245,8 @@ export default function VideoCard({
               </p>
             </div>
           )}
-
-          {/* Interaction Stats */}
-          <div className="flex items-center space-x-8 pt-2">
-            <div className="flex items-center space-x-2">
-              <HeartIcon className="w-5 h-5 text-white/70" />
-              <span className="text-sm text-white/70">{likes.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <ChatBubbleLeftIcon className="w-5 h-5 text-white/70" />
-              <span className="text-sm text-white/70">{comments.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <ShareIcon className="w-5 h-5 text-white/70" />
-              <span className="text-sm text-white/70">{shares.toLocaleString()}</span>
-            </div>
-          </div>
         </div>
-      </div>
-
-      {/* Right Side Actions */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col items-center space-y-6">
-        <button className="p-3 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all duration-300 transform hover:scale-110">
-          <HeartIcon className="w-6 h-6 text-white" />
-        </button>
-        <button className="p-3 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all duration-300 transform hover:scale-110">
-          <ChatBubbleLeftIcon className="w-6 h-6 text-white" />
-        </button>
-        <button className="p-3 rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all duration-300 transform hover:scale-110">
-          <ShareIcon className="w-6 h-6 text-white" />
-        </button>
       </div>
     </div>
   );
 }
-
-

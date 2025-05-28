@@ -44,13 +44,15 @@ function OrderContent() {
       return;
     }
     
-    console.log('Order placed:', {
+    // Simplified order placement without variant handling
+    const orderData = {
       ...orderDetails,
-      videoId,
-      videoTitle,
-      videoPrice
-    });
+      productId: videoId,
+      productTitle: videoTitle,
+      productPrice: videoPrice
+    };
     
+    console.log('Order placed:', orderData);
     setIsOrderPlaced(true);
   };
 
