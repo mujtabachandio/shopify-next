@@ -7,8 +7,8 @@ const SHOPIFY_ACCESS_TOKEN = 'c72eea1c6de28db7d3f0fa22f0cf86fa';
 // CORS headers configuration
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Shopify-Access-Token',
   'Access-Control-Max-Age': '86400',
 };
 
@@ -70,6 +70,7 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       const errorData = await response.json();
+      console.error('Shopify API Error:', errorData);
       return corsResponse(
         { error: errorData.errors || 'Failed to create order' },
         response.status
@@ -77,6 +78,7 @@ export async function POST(request: Request) {
     }
 
     const orderData = await response.json();
+    console.log('Order created successfully:', orderData);
 
     return corsResponse({
       success: true,
@@ -88,7 +90,7 @@ export async function POST(request: Request) {
       }
     });
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error creating order:', error);
     return corsResponse(
       { error: 'Failed to process order' },
       500
