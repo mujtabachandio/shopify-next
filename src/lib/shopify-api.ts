@@ -1,10 +1,22 @@
 import { GraphQLClient } from 'graphql-request';
 import { GET_COLLECTIONS, GET_PRODUCT, GET_PRODUCTS_BY_COLLECTION, GET_ALL_PRODUCTS } from './shopify-queries';
 
+// Validate required environment variables
+const SHOPIFY_STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN;
+const SHOPIFY_STOREFRONT_ACCESS_TOKEN = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN;
+
+if (!SHOPIFY_STORE_DOMAIN) {
+  throw new Error('SHOPIFY_STORE_DOMAIN environment variable is not set');
+}
+
+if (!SHOPIFY_STOREFRONT_ACCESS_TOKEN) {
+  throw new Error('SHOPIFY_STOREFRONT_ACCESS_TOKEN environment variable is not set');
+}
+
 // Initialize Shopify Storefront GraphQL client
-const client = new GraphQLClient(`https://${process.env.SHOPIFY_STORE_DOMAIN}/api/2024-01/graphql.json`, {
+const client = new GraphQLClient(`https://${SHOPIFY_STORE_DOMAIN}/api/2024-01/graphql.json`, {
   headers: {
-    'X-Shopify-Storefront-Access-Token': process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || '',
+    'X-Shopify-Storefront-Access-Token': SHOPIFY_STOREFRONT_ACCESS_TOKEN,
     'Content-Type': 'application/json',
   },
 });
