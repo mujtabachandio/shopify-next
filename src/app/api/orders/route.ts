@@ -116,7 +116,7 @@ export async function OPTIONS() {
   });
 }
 
-export async function GET() {
+export async function POST() {
   return new NextResponse(
     JSON.stringify({ error: 'Method not allowed. Please use POST for creating orders.' }),
     { 
@@ -129,7 +129,7 @@ export async function GET() {
   );
 }
 
-export async function POST(request: Request) {
+export async function GET(request: Request) {
   try {
     let body;
     try {
