@@ -96,6 +96,7 @@ function corsResponse(data: Record<string, unknown>, status: number = 200) {
   });
 }
 
+// Handle OPTIONS request
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
@@ -103,11 +104,12 @@ export async function OPTIONS() {
   });
 }
 
+// Handle POST request
 export async function POST(request: Request) {
+  // Add CORS headers to the response
+  
   try {
-    // Log the incoming request
     console.log('Received checkout request');
-
     const body = await request.json();
     console.log('Request body:', body);
 
@@ -197,4 +199,7 @@ export async function POST(request: Request) {
       500
     );
   }
-} 
+}
+
+// Add configuration for the API route
+export const runtime = 'edge'; 
