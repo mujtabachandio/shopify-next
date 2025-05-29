@@ -31,7 +31,7 @@ interface CheckoutResponse {
 // }
 
 // Initialize Shopify Storefront GraphQL client
-const client = new GraphQLClient('https://sastabazarbynabeelaadnan.myshopify.com/api/2024-07/graphql.json', {
+const client = new GraphQLClient('https://sastabazarbynabeelaadnan.myshopify.com/api/2024-01/graphql.json', {
   headers: {
     'X-Shopify-Storefront-Access-Token': process.env.SHOPIFY_STOREFRONT_TOKEN || '6814d8eaf588e22f9468079520508b17',
     'Content-Type': 'application/json',
@@ -85,15 +85,15 @@ const CREATE_CHECKOUT = `
   }
 `;
 
+// Enable CORS headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
 export async function POST(request: Request) {
   try {
-    // Enable CORS
-    const headers = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    };
-
     const body = await request.json();
     const { items, total } = body;
 
@@ -122,7 +122,7 @@ export async function POST(request: Request) {
     if (!checkoutCreate) {
       return NextResponse.json(
         { error: 'Failed to create checkout' },
-        { status: 500, headers }
+        { status: 500, headers: corsHeaders }
       );
     }
 
@@ -131,7 +131,7 @@ export async function POST(request: Request) {
       console.error('Checkout creation errors:', userErrors);
       return NextResponse.json(
         { error: userErrors.map((e: { message: string }) => e.message).join(', ') },
-        { status: 400, headers }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -148,28 +148,17 @@ export async function POST(request: Request) {
           totalPriceV2: checkoutCreate.checkout.order.totalPriceV2
         } : null
       }
-    }, { headers });
+    }, { headers: corsHeaders });
   } catch (error) {
     console.error('Error creating checkout:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to create checkout' },
-      { status: 500, headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      }}
+      { status: 500, headers: corsHeaders }
     );
   }
 }
 
-// Add OPTIONS method to handle CORS preflight requests
+// Handle OPTIONS request for CORS
 export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 204,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    },
-  });
+  return NextResponse.json({}, { headers: corsHeaders });
 } 
