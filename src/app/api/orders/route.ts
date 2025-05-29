@@ -95,25 +95,7 @@ const corsHeaders = {
 
 export async function POST(request: Request) {
   try {
-    // Validate request method
-    if (request.method !== 'POST') {
-      return NextResponse.json(
-        { error: 'Method not allowed' },
-        { status: 405, headers: corsHeaders }
-      );
-    }
-
-    // Parse request body
-    let body;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        { error: 'Invalid JSON in request body' },
-        { status: 400, headers: corsHeaders }
-      );
-    }
-
+    const body = await request.json();
     const { items, total } = body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
