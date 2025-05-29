@@ -2,12 +2,15 @@ import { GraphQLClient } from 'graphql-request';
 import { GET_COLLECTIONS, GET_PRODUCT, GET_PRODUCTS_BY_COLLECTION, GET_ALL_PRODUCTS } from './shopify-queries';
 
 // Hard-coded Shopify credentials
-const SHOPIFY_STORE_URL = 'https://tven40-ib.myshopify.com';
-const SHOPIFY_STOREFRONT_ACCESS_TOKEN = 'c72eea1c6de28db7d3f0fa22f0cf86fa';
+const SHOPIFY_STORE_URL = 'https://sastabazarbynabeelaadnan.myshopify.com';
+const SHOPIFY_STOREFRONT_ACCESS_TOKEN = '6814d8eaf588e22f9468079520508b17';
+const API_VERSION = '2024-01';
 
-const client = new GraphQLClient(`${SHOPIFY_STORE_URL}/api/2024-01/graphql.json`, {
+const client = new GraphQLClient(`${SHOPIFY_STORE_URL}/api/${API_VERSION}/graphql.json`, {
   headers: {
     'X-Shopify-Storefront-Access-Token': SHOPIFY_STOREFRONT_ACCESS_TOKEN,
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
   },
 });
 
@@ -551,104 +554,118 @@ export async function getProductsByCollection(
 }
 
 export async function getAllProducts(first: number = 50, after?: string): Promise<ShopifyResponse> {
-  try {
-    console.log('Fetching all products with params:', { first, after });
-    
-    const response = await client.request(GET_ALL_PRODUCTS, {
-      first,
-      after: after || null,
-    }) as GraphQLProductsResponse;
+  const maxRetries = 3;
+  let retryCount = 0;
 
-    if (!response.products?.edges) {
-      console.error('No products found in response:', response);
-      return { products: [], hasNextPage: false };
-    }
-
-    const products = response.products.edges.map(({ node }) => {
-      console.log('Processing product:', node.title);
-      console.log('Product media:', JSON.stringify(node.media.edges, null, 2));
+  while (retryCount < maxRetries) {
+    try {
+      console.log('Fetching all products with params:', { first, after });
       
-      const media = node.media.edges.map(({ node: mediaNode }) => {
-        console.log('Processing media node:', {
-          type: mediaNode.mediaContentType,
-          sources: mediaNode.sources,
-          embedUrl: mediaNode.embedUrl,
-          host: mediaNode.host,
-          originUrl: mediaNode.originUrl
-        });
+      const response = await client.request(GET_ALL_PRODUCTS, {
+        first,
+        after: after || null,
+      }) as GraphQLProductsResponse;
 
-        const mediaItem: Media = {
-          type: mediaNode.mediaContentType,
-        };
-
-        switch (mediaNode.mediaContentType) {
-          case 'IMAGE':
-            if (mediaNode.image) {
-              mediaItem.imageUrl = mediaNode.image.url;
-              mediaItem.imageAltText = mediaNode.image.altText;
-              mediaItem.imageWidth = mediaNode.image.width;
-              mediaItem.imageHeight = mediaNode.image.height;
-            }
-            break;
-
-          case 'VIDEO':
-            if (mediaNode.sources && mediaNode.sources.length > 0) {
-              const source = mediaNode.sources[0];
-              mediaItem.videoUrl = source.url;
-              mediaItem.videoMimeType = source.mimeType;
-              mediaItem.videoWidth = source.width;
-              mediaItem.videoHeight = source.height;
-            }
-            break;
-
-          case 'EXTERNAL_VIDEO':
-            console.log('Processing external video:', {
-              embedUrl: mediaNode.embedUrl,
-              host: mediaNode.host,
-              originUrl: mediaNode.originUrl
-            });
-            mediaItem.embedUrl = mediaNode.embedUrl;
-            mediaItem.host = mediaNode.host;
-            mediaItem.originUrl = mediaNode.originUrl;
-            break;
-        }
-
-        console.log('Processed media item:', mediaItem);
-        return mediaItem;
-      });
-
-      // Get the first available variant
-      const firstVariant = node.variants.edges[0]?.node;
-      if (!firstVariant) {
-        console.error('No variant found for product:', node.title);
-        return null;
+      if (!response.products?.edges) {
+        console.error('No products found in response:', response);
+        return { products: [], hasNextPage: false };
       }
 
-      return {
-        id: node.id,
-        title: node.title,
-        handle: node.handle,
-        description: node.description,
-        media,
-        price: {
-          amount: parseFloat(firstVariant.price.amount),
-          currencyCode: firstVariant.price.currencyCode,
-        },
-        variants: {
-          edges: node.variants.edges
-        }
-      };
-    }).filter((product): product is Product => product !== null);
+      const products = response.products.edges.map(({ node }) => {
+        console.log('Processing product:', node.title);
+        console.log('Product variants:', JSON.stringify(node.variants.edges, null, 2));
+        
+        const media = node.media.edges.map(({ node: mediaNode }) => {
+          console.log('Processing media node:', {
+            type: mediaNode.mediaContentType,
+            sources: mediaNode.sources,
+            embedUrl: mediaNode.embedUrl,
+            host: mediaNode.host,
+            originUrl: mediaNode.originUrl
+          });
 
-    return {
-      products,
-      hasNextPage: response.products.pageInfo.hasNextPage,
-      endCursor: response.products.pageInfo.endCursor,
-    };
-  } catch (error) {
-    console.error('Error fetching all products:', error);
-    throw error;
+          const mediaItem: Media = {
+            type: mediaNode.mediaContentType,
+          };
+
+          switch (mediaNode.mediaContentType) {
+            case 'IMAGE':
+              if (mediaNode.image) {
+                mediaItem.imageUrl = mediaNode.image.url;
+                mediaItem.imageAltText = mediaNode.image.altText;
+                mediaItem.imageWidth = mediaNode.image.width;
+                mediaItem.imageHeight = mediaNode.image.height;
+              }
+              break;
+
+            case 'VIDEO':
+              if (mediaNode.sources && mediaNode.sources.length > 0) {
+                const source = mediaNode.sources[0];
+                mediaItem.videoUrl = source.url;
+                mediaItem.videoMimeType = source.mimeType;
+                mediaItem.videoWidth = source.width;
+                mediaItem.videoHeight = source.height;
+              }
+              break;
+
+            case 'EXTERNAL_VIDEO':
+              console.log('Processing external video:', {
+                embedUrl: mediaNode.embedUrl,
+                host: mediaNode.host,
+                originUrl: mediaNode.originUrl
+              });
+              mediaItem.embedUrl = mediaNode.embedUrl;
+              mediaItem.host = mediaNode.host;
+              mediaItem.originUrl = mediaNode.originUrl;
+              break;
+          }
+
+          console.log('Processed media item:', mediaItem);
+          return mediaItem;
+        });
+
+        // Get all available variants
+        const variants = node.variants.edges.map(edge => edge.node);
+        if (variants.length === 0) {
+          console.error('No variants found for product:', node.title);
+          return null;
+        }
+
+        return {
+          id: node.id,
+          title: node.title,
+          handle: node.handle,
+          description: node.description,
+          media,
+          price: {
+            amount: parseFloat(variants[0].price.amount),
+            currencyCode: variants[0].price.currencyCode,
+          },
+          variants: {
+            edges: node.variants.edges
+          }
+        };
+      }).filter((product): product is Product => product !== null);
+
+      return {
+        products,
+        hasNextPage: response.products.pageInfo.hasNextPage,
+        endCursor: response.products.pageInfo.endCursor
+      };
+    } catch (error) {
+      console.error(`Error fetching products (attempt ${retryCount + 1}/${maxRetries}):`, error);
+      retryCount++;
+      
+      if (retryCount === maxRetries) {
+        throw error;
+      }
+      
+      // Wait before retrying (exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+    }
   }
+
+  throw new Error('Failed to fetch products after multiple retries');
 }
 
 export async function getProductByHandle(handle: string): Promise<ShopifyResponse> {

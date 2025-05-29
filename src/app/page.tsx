@@ -62,10 +62,31 @@ interface ApiResponse {
   collections: Collection[];
 }
 
-interface ProcessedProduct extends Product {
+interface ProcessedProduct extends ShopifyProduct {
+  image: string;
   videoUrl: string;
+  mediaType: 'IMAGE' | 'VIDEO' | 'YOUTUBE';
+  category: string;
+  brandName?: string;
   thumbnail: string;
   hasVideo: boolean;
+  variantId: string;
+  variants: {
+    edges: Array<{
+      node: {
+        id: string;
+        price: {
+          amount: string;
+          currencyCode: string;
+        };
+        availableForSale: boolean;
+        selectedOptions: Array<{
+          name: string;
+          value: string;
+        }>;
+      };
+    }>;
+  };
 }
 
 export default function HomePage() {
@@ -137,7 +158,7 @@ export default function HomePage() {
         return;
       }
 
-      const processedProducts: ProcessedProduct[] = response.products.map((product: ShopifyProduct) => {
+      const processedProducts: ProcessedProduct[] = response.products.map(product => {
         const videoMedia = product.media?.find((m) => m.type === 'VIDEO');
         const externalVideoMedia = product.media?.find((m) => m.type === 'EXTERNAL_VIDEO');
         const imageMedia = product.media?.find((m) => m.type === 'IMAGE');
@@ -163,9 +184,16 @@ export default function HomePage() {
           videoUrl = videoMedia.videoUrl;
         }
 
-        // Get the first available variant or use a default
-        const firstVariant = product.variants?.edges?.[0]?.node;
-        const variantId = firstVariant?.id || '';
+        // Process variants
+        const variants = product.variants?.edges.map(edge => ({
+          id: edge.node.id,
+          title: edge.node.title || 'Default',
+          price: {
+            amount: parseFloat(edge.node.price.amount),
+            currencyCode: edge.node.price.currencyCode
+          },
+          selectedOptions: edge.node.selectedOptions
+        })) || [];
 
         const processedProduct: ProcessedProduct = {
           ...product,
@@ -175,7 +203,20 @@ export default function HomePage() {
           image: thumbnail,
           mediaType: videoUrl ? 'VIDEO' : 'IMAGE',
           category: 'Uncategorized',
-          variantId
+          variants: {
+            edges: variants.map(variant => ({
+              node: {
+                id: variant.id,
+                price: {
+                  amount: variant.price.amount.toString(),
+                  currencyCode: variant.price.currencyCode
+                },
+                availableForSale: true,
+                selectedOptions: variant.selectedOptions
+              }
+            }))
+          },
+          variantId: variants[0]?.id || ''
         };
 
         return processedProduct;
@@ -250,13 +291,13 @@ export default function HomePage() {
                   <div key={product.id} className="h-screen">
                     <VideoCard
                       id={product.id}
-                      variantId={product.variantId}
                       title={product.title}
                       videoUrl={product.videoUrl}
-                      thumbnail={product.thumbnail}
+                      image={product.image}
                       description={product.description}
                       price={product.price}
-                      brandName={product.brandName || ''}
+                      variants={product.variants || { edges: [] }}
+                      category={product.category}
                     />
                   </div>
                 ))}

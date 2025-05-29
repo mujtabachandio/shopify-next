@@ -6,12 +6,13 @@ export async function POST(request: Request) {
 
     // Shopify Storefront API mutation for creating a contact form submission
     const response = await fetch(
-      "https://tven40-ib.myshopify.com/api/2024-01/graphql.json",
+      "https://sastabazarbynabeelaadnan.myshopify.com/api/2024-01/graphql.json",
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Shopify-Storefront-Access-Token": "c72eea1c6de28db7d3f0fa22f0cf86fa",
+          "Accept": "application/json",
+          "X-Shopify-Storefront-Access-Token": "6814d8eaf588e22f9468079520508b17",
         },
         body: JSON.stringify({
           query: `

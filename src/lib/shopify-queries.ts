@@ -48,7 +48,7 @@ export const GET_COLLECTIONS = gql`
                     }
                   }
                 }
-                variants(first: 1) {
+                variants(first: 100) {
                   edges {
                     node {
                       id
@@ -110,7 +110,7 @@ export const GET_PRODUCT = gql`
           }
         }
       }
-      variants(first: 10) {
+      variants(first: 100) {
         edges {
           node {
             id
@@ -175,7 +175,7 @@ export const GET_PRODUCTS_BY_COLLECTION = gql`
                 }
               }
             }
-            variants(first: 1) {
+            variants(first: 100) {
               edges {
                 node {
                   id
@@ -255,7 +255,7 @@ export const GET_ALL_PRODUCTS = gql`
               }
             }
           }
-          variants(first: 1) {
+          variants(first: 100) {
             edges {
               node {
                 id

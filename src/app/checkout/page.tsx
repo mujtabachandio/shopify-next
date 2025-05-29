@@ -22,7 +22,7 @@ export default function CheckoutPage() {
         },
         body: JSON.stringify({
           items: items.map(item => ({
-            productId: `gid://shopify/Product/${item.id.split('/').pop()}`,
+            variantId: item.id,
             title: item.title,
             price: item.price,
             quantity: item.quantity

@@ -1,30 +1,21 @@
 import { NextResponse } from 'next/server';
 import { GraphQLClient } from 'graphql-request';
 
-interface ProductVariantResponse {
-  product?: {
-    id: string;
-    title: string;
-    variants: {
-      edges: Array<{
-        node: {
-          id: string;
-          title: string;
-          price: {
-            amount: string;
-            currencyCode: string;
-          };
-        };
-      }>;
-    };
-  };
-}
-
 interface CheckoutResponse {
   checkoutCreate?: {
     checkout?: {
       id: string;
       webUrl: string;
+      completedAt: string;
+      order: {
+        id: string;
+        orderNumber: string;
+        processedAt: string;
+        totalPriceV2: {
+          amount: string;
+          currencyCode: string;
+        };
+      };
     };
     checkoutUserErrors?: Array<{
       code: string;
@@ -34,40 +25,40 @@ interface CheckoutResponse {
   };
 }
 
-interface CartItem {
-  productId: string;
-  title: string;
+interface CheckoutItem {
   quantity: number;
+  variantId: string;
 }
 
 // Initialize Shopify Storefront GraphQL client
-const client = new GraphQLClient('https://tven40-ib.myshopify.com/api/2024-01/graphql.json', {
+const client = new GraphQLClient('https://sastabazarbynabeelaadnan.myshopify.com/api/2024-01/graphql.json', {
   headers: {
-    'X-Shopify-Storefront-Access-Token': 'c72eea1c6de28db7d3f0fa22f0cf86fa',
+    'X-Shopify-Storefront-Access-Token': '6814d8eaf588e22f9468079520508b17',
     'Content-Type': 'application/json',
+    'Accept': 'application/json',
   },
 });
 
-const GET_PRODUCT_VARIANT = `
-  query getProductVariant($id: ID!) {
-    product(id: $id) {
-      id
-      title
-      variants(first: 1) {
-        edges {
-          node {
-            id
-            title
-            price {
-              amount
-              currencyCode
-            }
-          }
-        }
-      }
-    }
-  }
-`;
+// const GET_PRODUCT_VARIANT = `
+//   query getProductVariant($id: ID!) {
+//     product(id: $id) {
+//       id
+//       title
+//       variants(first: 1) {
+//         edges {
+//           node {
+//             id
+//             title
+//             price {
+//               amount
+//               currencyCode
+//             }
+//           }
+//         }
+//       }
+//     }
+//   }
+// `;
 
 const CREATE_CHECKOUT = `
   mutation checkoutCreate($input: CheckoutCreateInput!) {
@@ -75,6 +66,16 @@ const CREATE_CHECKOUT = `
       checkout {
         id
         webUrl
+        completedAt
+        order {
+          id
+          orderNumber
+          processedAt
+          totalPriceV2 {
+            amount
+            currencyCode
+          }
+        }
       }
       checkoutUserErrors {
         code
@@ -92,41 +93,20 @@ export async function POST(request: Request) {
 
     console.log('Received order request:', { items, total });
 
-    // Get the first variant ID for each product
-    const lineItems = await Promise.all(items.map(async (item: CartItem) => {
-      console.log('Processing item:', item);
-
-      try {
-        // Get the first variant of the product
-        const response = await client.request<ProductVariantResponse>(GET_PRODUCT_VARIANT, {
-          id: item.productId.startsWith('gid://') ? item.productId : `gid://shopify/Product/${item.productId}`
-        });
-
-        console.log('Product variant response:', response);
-
-        const variant = response.product?.variants?.edges[0]?.node;
-        if (!variant) {
-          throw new Error(`No variant found for product: ${item.title}`);
-        }
-
-        console.log('Found variant:', variant);
-
-        return {
-          quantity: item.quantity,
-          variantId: variant.id
-        };
-      } catch (error) {
-        console.error('Error processing item:', error);
-        throw error;
-      }
+    // Format line items for checkout
+    const lineItems = items.map((item: CheckoutItem) => ({
+      quantity: item.quantity,
+      variantId: item.variantId
     }));
 
     console.log('Prepared line items:', lineItems);
 
-    // Create checkout in Shopify
+    // Create checkout in Shopify with proper headers
     const response = await client.request<CheckoutResponse>(CREATE_CHECKOUT, {
       input: {
-        lineItems
+        lineItems,
+        allowPartialAddresses: true,
+        email: "customer@example.com" // This will be updated by customer during checkout
       }
     });
 
