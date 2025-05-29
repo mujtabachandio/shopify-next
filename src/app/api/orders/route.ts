@@ -101,7 +101,7 @@ export async function POST(request: Request) {
 
     console.log('Prepared line items:', lineItems);
 
-    // Create checkout in Shopify with proper headers
+    // Create checkout in Shopify
     const response = await client.request<CheckoutResponse>(CREATE_CHECKOUT, {
       input: {
         lineItems,
@@ -129,9 +129,20 @@ export async function POST(request: Request) {
       );
     }
 
+    // Ensure we're returning a valid JSON response
     return NextResponse.json({
       success: true,
-      checkout: checkoutCreate.checkout
+      checkout: {
+        id: checkoutCreate.checkout?.id,
+        webUrl: checkoutCreate.checkout?.webUrl,
+        completedAt: checkoutCreate.checkout?.completedAt,
+        order: checkoutCreate.checkout?.order ? {
+          id: checkoutCreate.checkout.order.id,
+          orderNumber: checkoutCreate.checkout.order.orderNumber,
+          processedAt: checkoutCreate.checkout.order.processedAt,
+          totalPriceV2: checkoutCreate.checkout.order.totalPriceV2
+        } : null
+      }
     });
   } catch (error) {
     console.error('Error creating checkout:', error);
