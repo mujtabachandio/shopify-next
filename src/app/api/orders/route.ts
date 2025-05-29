@@ -90,12 +90,38 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Content-Type': 'application/json',
 };
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    // Validate request method
+    if (request.method !== 'POST') {
+      return NextResponse.json(
+        { error: 'Method not allowed' },
+        { status: 405, headers: corsHeaders }
+      );
+    }
+
+    // Parse request body
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
     const { items, total } = body;
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return NextResponse.json(
+        { error: 'No items in cart' },
+        { status: 400, headers: corsHeaders }
+      );
+    }
 
     console.log('Received order request:', { items, total });
 
@@ -135,13 +161,20 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!checkoutCreate.checkout?.webUrl) {
+      return NextResponse.json(
+        { error: 'No checkout URL received' },
+        { status: 500, headers: corsHeaders }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       checkout: {
-        id: checkoutCreate.checkout?.id,
-        webUrl: checkoutCreate.checkout?.webUrl,
-        completedAt: checkoutCreate.checkout?.completedAt,
-        order: checkoutCreate.checkout?.order ? {
+        id: checkoutCreate.checkout.id,
+        webUrl: checkoutCreate.checkout.webUrl,
+        completedAt: checkoutCreate.checkout.completedAt,
+        order: checkoutCreate.checkout.order ? {
           id: checkoutCreate.checkout.order.id,
           orderNumber: checkoutCreate.checkout.order.orderNumber,
           processedAt: checkoutCreate.checkout.order.processedAt,
