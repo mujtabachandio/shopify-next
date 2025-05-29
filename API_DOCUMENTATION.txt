@@ -1,0 +1,63 @@
+API DOMAINS AND ENVIRONMENT VARIABLES DOCUMENTATION
+===============================================
+
+1. SHOPIFY API
+-------------
+Base URL: https://sastabazarbynabeelaadnan.myshopify.com
+API Version: 2024-01
+GraphQL Endpoint: /api/2024-01/graphql.json
+
+Required Environment Variables:
+- NEXT_PUBLIC_SHOPIFY_STORE_URL=sastabazarbynabeelaadnan.myshopify.com
+- NEXT_PUBLIC_SHOPIFY_STOREFRONT_ACCESS_TOKEN=6814d8eaf588e22f9468079520508b17
+- SHOPIFY_WEBHOOK_SECRET=[Your webhook secret]
+
+2. FIREBASE
+----------
+Project: sasta-bazar-8b625
+Required Environment Variables:
+- FIREBASE_API_KEY=AIzaSyBdO89-INHQJLfWXq6vkaSfodXMY_wttcM
+- FIREBASE_AUTH_DOMAIN=sasta-bazar-8b625.firebaseapp.com
+- FIREBASE_PROJECT_ID=sasta-bazar-8b625
+- FIREBASE_STORAGE_BUCKET=sasta-bazar-8b625.firebasestorage.app
+- FIREBASE_MESSAGING_SENDER_ID=683254419384
+- FIREBASE_APP_ID=1:683254419384:web:20771c0b35ab44a6b7094d
+- FIREBASE_MEASUREMENT_ID=G-522MZ2MTY8
+
+3. EXTERNAL SERVICES
+------------------
+YouTube API:
+- Used for video embedding and thumbnails
+- No API key required for basic embedding functionality
+
+4. IMAGE DOMAINS
+--------------
+Allowed domains for Next.js Image component:
+- cdn.shopify.com
+- i.ytimg.com
+- img.youtube.com
+- shopify.com
+
+5. ENVIRONMENT SETUP
+------------------
+Create a .env file in the root directory with the following variables:
+
+# Shopify Configuration
+NEXT_PUBLIC_SHOPIFY_STORE_URL=sastabazarbynabeelaadnan.myshopify.com
+NEXT_PUBLIC_SHOPIFY_STOREFRONT_ACCESS_TOKEN=6814d8eaf588e22f9468079520508b17
+SHOPIFY_WEBHOOK_SECRET=[Your webhook secret]
+
+# Firebase Configuration
+FIREBASE_API_KEY=AIzaSyBdO89-INHQJLfWXq6vkaSfodXMY_wttcM
+FIREBASE_AUTH_DOMAIN=sasta-bazar-8b625.firebaseapp.com
+FIREBASE_PROJECT_ID=sasta-bazar-8b625
+FIREBASE_STORAGE_BUCKET=sasta-bazar-8b625.firebasestorage.app
+FIREBASE_MESSAGING_SENDER_ID=683254419384
+FIREBASE_APP_ID=1:683254419384:web:20771c0b35ab44a6b7094d
+FIREBASE_MEASUREMENT_ID=G-522MZ2MTY8
+
+# Node Environment
+NODE_ENV=development
+
+Note: Replace [Your webhook secret] with your actual Shopify webhook secret.
+Make sure to add .env to your .gitignore file to keep sensitive information secure. 

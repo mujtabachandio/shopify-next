@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { GraphQLClient } from 'graphql-request';
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+
 interface CheckoutResponse {
   checkoutCreate: {
     checkout: {
@@ -31,9 +34,9 @@ interface CheckoutResponse {
 // }
 
 // Initialize Shopify Storefront GraphQL client
-const client = new GraphQLClient('https://sastabazarbynabeelaadnan.myshopify.com/api/2025-01/graphql.json', {
+const client = new GraphQLClient(`https://${process.env.NEXT_PUBLIC_SHOPIFY_STORE_URL}/api/2024-01/graphql.json`, {
   headers: {
-    'X-Shopify-Storefront-Access-Token': process.env.SHOPIFY_STOREFRONT_TOKEN || '6814d8eaf588e22f9468079520508b17',
+    'X-Shopify-Storefront-Access-Token': process.env.NEXT_PUBLIC_SHOPIFY_STOREFRONT_ACCESS_TOKEN || '',
     'Content-Type': 'application/json',
   },
 });
@@ -95,6 +98,15 @@ const corsHeaders = {
 
 export async function POST(request: Request) {
   try {
+    // Verify environment variables
+    if (!process.env.NEXT_PUBLIC_SHOPIFY_STORE_URL || !process.env.NEXT_PUBLIC_SHOPIFY_STOREFRONT_ACCESS_TOKEN) {
+      console.error('Missing required Shopify environment variables');
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500, headers: corsHeaders }
+      );
+    }
+
     const body = await request.json();
     const { items, total } = body;
 
