@@ -2,24 +2,24 @@ import { NextResponse } from 'next/server';
 import { GraphQLClient } from 'graphql-request';
 
 interface CheckoutResponse {
-  checkoutCreate?: {
-    checkout?: {
+  checkoutCreate: {
+    checkout: {
       id: string;
       webUrl: string;
-      completedAt: string;
+      completedAt: string | null;
       order: {
         id: string;
-        orderNumber: string;
+        orderNumber: number;
         processedAt: string;
         totalPriceV2: {
           amount: string;
           currencyCode: string;
         };
-      };
-    };
-    checkoutUserErrors?: Array<{
+      } | null;
+    } | null;
+    checkoutUserErrors: Array<{
       code: string;
-      field: string;
+      field: string[];
       message: string;
     }>;
   };
@@ -33,9 +33,8 @@ interface CheckoutItem {
 // Initialize Shopify Storefront GraphQL client
 const client = new GraphQLClient('https://sastabazarbynabeelaadnan.myshopify.com/api/2024-01/graphql.json', {
   headers: {
-    'X-Shopify-Storefront-Access-Token': '6814d8eaf588e22f9468079520508b17',
+    'X-Shopify-Storefront-Access-Token': process.env.SHOPIFY_STOREFRONT_TOKEN || '6814d8eaf588e22f9468079520508b17',
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
   },
 });
 
@@ -88,13 +87,20 @@ const CREATE_CHECKOUT = `
 
 export async function POST(request: Request) {
   try {
+    // Enable CORS
+    const headers = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    };
+
     const body = await request.json();
     const { items, total } = body;
 
     console.log('Received order request:', { items, total });
 
     // Format line items for checkout
-    const lineItems = items.map((item: CheckoutItem) => ({
+    const lineItems = items.map((item: { quantity: number; variantId: string }) => ({
       quantity: item.quantity,
       variantId: item.variantId
     }));
@@ -106,7 +112,7 @@ export async function POST(request: Request) {
       input: {
         lineItems,
         allowPartialAddresses: true,
-        email: "customer@example.com" // This will be updated by customer during checkout
+        email: "customer@example.com"
       }
     });
 
@@ -116,7 +122,7 @@ export async function POST(request: Request) {
     if (!checkoutCreate) {
       return NextResponse.json(
         { error: 'Failed to create checkout' },
-        { status: 500 }
+        { status: 500, headers }
       );
     }
 
@@ -125,11 +131,10 @@ export async function POST(request: Request) {
       console.error('Checkout creation errors:', userErrors);
       return NextResponse.json(
         { error: userErrors.map((e: { message: string }) => e.message).join(', ') },
-        { status: 400 }
+        { status: 400, headers }
       );
     }
 
-    // Ensure we're returning a valid JSON response
     return NextResponse.json({
       success: true,
       checkout: {
@@ -143,12 +148,28 @@ export async function POST(request: Request) {
           totalPriceV2: checkoutCreate.checkout.order.totalPriceV2
         } : null
       }
-    });
+    }, { headers });
   } catch (error) {
     console.error('Error creating checkout:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to create checkout' },
-      { status: 500 }
+      { status: 500, headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      }}
     );
   }
+}
+
+// Add OPTIONS method to handle CORS preflight requests
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  });
 } 
