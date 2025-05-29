@@ -31,7 +31,7 @@ interface CheckoutResponse {
 // }
 
 // Initialize Shopify Storefront GraphQL client
-const client = new GraphQLClient('https://sastabazarbynabeelaadnan.myshopify.com/api/unstable/graphql.json', {
+const client = new GraphQLClient('https://sastabazarbynabeelaadnan.myshopify.com/api/2025-01/graphql.json', {
   headers: {
     'X-Shopify-Storefront-Access-Token': process.env.SHOPIFY_STOREFRONT_TOKEN || '6814d8eaf588e22f9468079520508b17',
     'Content-Type': 'application/json',
