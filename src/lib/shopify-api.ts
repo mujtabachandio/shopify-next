@@ -11,8 +11,23 @@ const client = new GraphQLClient(`${SHOPIFY_STORE_URL}/api/${API_VERSION}/graphq
     'X-Shopify-Storefront-Access-Token': SHOPIFY_STOREFRONT_ACCESS_TOKEN,
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-  },
+  }
 });
+
+// Helper function to handle GraphQL errors
+const handleGraphQLError = (error: unknown) => {
+  const graphqlError = error as { response?: { status: number }, message?: string };
+  if (graphqlError.response?.status === 401) {
+    throw new Error('Invalid or expired Shopify API token');
+  } else if (graphqlError.response?.status === 404) {
+    throw new Error('Shopify store not found');
+  } else if (graphqlError.response?.status === 429) {
+    throw new Error('Too many requests to Shopify API');
+  } else if (graphqlError.message?.includes('Network Error')) {
+    throw new Error('Network error - please check your internet connection');
+  }
+  throw error;
+};
 
 export interface Media {
   type: string;
@@ -459,6 +474,7 @@ export async function getCollections(first: number = 5, after?: string): Promise
       endCursor: response.collections.pageInfo.endCursor,
     };
   } catch (error) {
+    handleGraphQLError(error);
     console.error('Error fetching collections:', error);
     return { collections: [], hasNextPage: false };
   }
@@ -492,6 +508,7 @@ export async function getProduct(handle: string): Promise<Product | null> {
       }
     };
   } catch (error) {
+    handleGraphQLError(error);
     console.error('Error fetching product:', error);
     return null;
   }
@@ -548,6 +565,7 @@ export async function getProductsByCollection(
       endCursor: collection.products.pageInfo.endCursor,
     };
   } catch (error) {
+    handleGraphQLError(error);
     console.error('Error fetching products by collection:', error);
     return { products: [], hasNextPage: false };
   }
@@ -653,6 +671,7 @@ export async function getAllProducts(first: number = 50, after?: string): Promis
         endCursor: response.products.pageInfo.endCursor
       };
     } catch (error) {
+      handleGraphQLError(error);
       console.error(`Error fetching products (attempt ${retryCount + 1}/${maxRetries}):`, error);
       retryCount++;
       
@@ -702,6 +721,7 @@ export async function getProductByHandle(handle: string): Promise<ShopifyRespons
       endCursor: undefined
     };
   } catch (error) {
+    handleGraphQLError(error);
     console.error('Error fetching product:', error);
     return { products: [], hasNextPage: false, endCursor: undefined };
   }

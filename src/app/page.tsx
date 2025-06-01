@@ -98,15 +98,15 @@ export default function HomePage() {
   const [hasMore, setHasMore] = useState(true);
   const { ref, inView } = useInView();
 
-  const getVideoUrl = useCallback((url: string, host?: string): string => {
+  const getVideoUrl = useCallback((url: string, host?: string, mediaType?: string): string => {
     if (!url) return '';
     
-    // If it's a direct video URL, return it
-    if (url.endsWith('.mp4') || url.endsWith('.mov') || url.endsWith('.webm')) {
+    // Handle direct video URLs
+    if (mediaType === 'VIDEO' || url.endsWith('.mp4') || url.endsWith('.mov') || url.endsWith('.webm')) {
       return url;
     }
     
-    // If it's a YouTube URL, convert to direct video URL
+    // Handle YouTube URLs
     if (host === 'YOUTUBE' || url.includes('youtube.com') || url.includes('youtu.be')) {
       const videoId = url.includes('youtu.be') 
         ? url.split('/').pop() 
@@ -115,7 +115,7 @@ export default function HomePage() {
       if (!videoId) return url;
       
       // Use the YouTube embed URL with autoplay and other parameters
-      return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&controls=0&loop=1&playlist=${videoId}`;
+      return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&controls=0&loop=1&playlist=${videoId}&playsinline=1`;
     }
     
     return url;
@@ -137,14 +137,32 @@ export default function HomePage() {
 
   const fetchProducts = useCallback(async () => {
     try {
-      const response = await fetch('/api/collections');
+      setLoading(true);
+      const response = await fetch('/api/collections', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store'
+      });
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch collections');
+        throw new Error(`Failed to fetch collections: ${response.statusText}`);
       }
+      
       const data: ApiResponse = await response.json();
+      
+      if (!data.collections || data.collections.length === 0) {
+        setError('No collections found');
+        return;
+      }
+      
       setCollections(data.collections);
     } catch (error) {
+      console.error('Error fetching collections:', error);
       setError(error instanceof Error ? error.message : 'Failed to fetch collections');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -165,23 +183,36 @@ export default function HomePage() {
         
         let videoUrl = '';
         let thumbnail = '/placeholder.jpg';
+        let mediaType: 'IMAGE' | 'VIDEO' | 'YOUTUBE' = 'IMAGE';
 
+        // Handle image media
         if (imageMedia?.imageUrl) {
           thumbnail = imageMedia.imageUrl;
         }
 
+        // Handle external video (YouTube)
         if (externalVideoMedia?.originUrl) {
           const originUrl = externalVideoMedia.originUrl;
           const host = externalVideoMedia.host || '';
-          videoUrl = getVideoUrl(originUrl, host);
+          videoUrl = getVideoUrl(originUrl, host, 'EXTERNAL_VIDEO');
+          mediaType = 'YOUTUBE';
+          
           if (host === 'YOUTUBE') {
             const youtubeThumbnail = getYouTubeThumbnail(originUrl);
             if (youtubeThumbnail) {
               thumbnail = youtubeThumbnail;
             }
           }
-        } else if (videoMedia?.videoUrl) {
+        } 
+        // Handle direct video upload
+        else if (videoMedia?.videoUrl) {
           videoUrl = videoMedia.videoUrl;
+          mediaType = 'VIDEO';
+          
+          // Use video thumbnail if available
+          if (videoMedia.imageUrl) {
+            thumbnail = videoMedia.imageUrl;
+          }
         }
 
         // Process variants
@@ -201,7 +232,7 @@ export default function HomePage() {
           thumbnail,
           hasVideo: !!videoUrl,
           image: thumbnail,
-          mediaType: videoUrl ? 'VIDEO' : 'IMAGE',
+          mediaType,
           category: 'Uncategorized',
           variants: {
             edges: variants.map(variant => ({
@@ -231,7 +262,21 @@ export default function HomePage() {
       setHasMore(response.hasNextPage);
       setEndCursor(response.endCursor || null);
     } catch (error) {
-      setError('Failed to load products. Please try again later.');
+      let errorMessage = 'Failed to load products. Please try again later.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Invalid or expired Shopify API token')) {
+          errorMessage = 'Shopify API token is invalid or expired. Please contact support.';
+        } else if (error.message.includes('Shopify store not found')) {
+          errorMessage = 'Shopify store not found. Please check the store configuration.';
+        } else if (error.message.includes('Too many requests')) {
+          errorMessage = 'Too many requests. Please try again in a few moments.';
+        } else if (error.message.includes('Network error')) {
+          errorMessage = 'Network error. Please check your internet connection and try again.';
+        }
+      }
+      
+      setError(errorMessage);
       console.error('Error loading products:', error);
     } finally {
       setLoading(false);

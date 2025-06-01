@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import { getCollections } from '@/lib/shopify-api';
 
 const getYouTubeEmbedUrl = (url: string) => {
+  if (!url) return '';
   if (url.includes('youtu.be')) {
     const videoId = url.split('/').pop();
-    return `https://www.youtube.com/embed/${videoId}`;
+    return videoId ? `https://www.youtube.com/embed/${videoId}` : '';
   }
   if (url.includes('youtube.com')) {
     const videoId = new URL(url).searchParams.get('v');
@@ -16,74 +17,74 @@ const getYouTubeEmbedUrl = (url: string) => {
 export async function GET() {
   try {
     const response = await getCollections(5);
-    // console.log('Raw Shopify response:', JSON.stringify(response, null, 2));
+    
+    if (!response || !response.collections) {
+      return NextResponse.json(
+        { error: 'No collections found' },
+        { status: 404 }
+      );
+    }
     
     // Process collections to ensure proper image URLs
     const processedCollections = response.collections.map((collection) => {
-      // console.log(`Processing collection: ${collection.title}`);
-      
       return {
-        ...collection,
+        id: collection.id,
+        title: collection.title,
+        handle: collection.handle,
+        description: collection.description,
         products: collection.products.map((product) => {
-          // console.log(`Processing product: ${product.title}`);
-          
           let mediaType = 'IMAGE';
-          let videoUrl = null;
-          let imageUrl = null;
+          let videoUrl = '';
+          let imageUrl = '/placeholder.png';
 
           // Check all media items to determine the type and get URLs
           if (product.media?.length > 0) {
             const firstMedia = product.media[0];
-            // console.log('First media item:', firstMedia);
 
             switch (firstMedia.type) {
               case 'IMAGE':
                 mediaType = 'IMAGE';
-                imageUrl = firstMedia.imageUrl;
+                imageUrl = firstMedia.imageUrl || '/placeholder.png';
                 break;
 
               case 'VIDEO':
                 mediaType = 'VIDEO';
-                videoUrl = firstMedia.videoUrl;
-                imageUrl = firstMedia.imageUrl;
+                videoUrl = firstMedia.videoUrl || '';
+                imageUrl = firstMedia.imageUrl || '/placeholder.png';
                 break;
 
               case 'EXTERNAL_VIDEO':
                 mediaType = 'YOUTUBE';
-                if (firstMedia.host === 'YOUTUBE') {
-                  videoUrl = getYouTubeEmbedUrl(firstMedia.originUrl || '');
-                  const videoId = firstMedia.originUrl?.split('/').pop()?.split('?')[0];
-                  imageUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+                if (firstMedia.host === 'YOUTUBE' && firstMedia.originUrl) {
+                  videoUrl = getYouTubeEmbedUrl(firstMedia.originUrl);
+                  const videoId = firstMedia.originUrl.split('/').pop()?.split('?')[0];
+                  if (videoId) {
+                    imageUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+                  }
                 }
                 break;
             }
           }
           
-          const processedProduct = {
-            ...product,
+          return {
+            id: product.id,
+            title: product.title,
+            handle: product.handle,
+            description: product.description,
             mediaType,
-            image: imageUrl || '/placeholder.png',
+            image: imageUrl,
             videoUrl,
             category: collection.title,
             price: {
               amount: parseFloat(product.price?.amount?.toString() || '0'),
               currencyCode: product.price?.currencyCode || 'PKR'
-            }
+            },
+            variants: product.variants
           };
-          
-          console.log('Product data from Shopify:', {
-            title: product.title,
-            id: product.id,
-            price: product.price
-          });
-
-          console.log('Processed product:', processedProduct);
-          return processedProduct;
         }),
       };
     });
 
-    console.log('Final processed collections:', JSON.stringify(processedCollections, null, 2));
     return NextResponse.json({ collections: processedCollections });
   } catch (error) {
     console.error('Error in collections API:', error);

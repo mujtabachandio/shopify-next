@@ -111,6 +111,7 @@ export default function VideoCard({ title, description, videoUrl, image, variant
   }, [selectedVariant, items]);
 
   const isYouTubeVideo = videoUrl && (videoUrl.includes('youtube.com/embed') || videoUrl.includes('youtu.be') || videoUrl.includes('youtube.com/watch'));
+  const isDirectVideo = videoUrl && (videoUrl.endsWith('.mp4') || videoUrl.endsWith('.mov') || videoUrl.endsWith('.webm'));
 
   // Extract YouTube video ID
   const getYouTubeVideoId = (url: string) => {
@@ -132,7 +133,7 @@ export default function VideoCard({ title, description, videoUrl, image, variant
 
   useEffect(() => {
     // Only set up video observer if this is actually a video
-    if (isYouTubeVideo && videoId) {
+    if ((isYouTubeVideo || isDirectVideo) && videoUrl) {
       const observer = new IntersectionObserver(
         (entries) => {
           entries.forEach((entry) => {
@@ -159,7 +160,7 @@ export default function VideoCard({ title, description, videoUrl, image, variant
         }
       };
     }
-  }, [title, videoId, isYouTubeVideo, watchUrl]);
+  }, [title, videoId, isYouTubeVideo, isDirectVideo, videoUrl, watchUrl]);
 
   const handleAddToCart = () => {
     if (!selectedVariant) return;
@@ -181,7 +182,7 @@ export default function VideoCard({ title, description, videoUrl, image, variant
   };
 
   // If this is not a video, just render the image
-  if (!isYouTubeVideo || !videoUrl) {
+  if (!isYouTubeVideo && !isDirectVideo) {
     return (
       <motion.div 
         initial={{ opacity: 0 }}
@@ -328,26 +329,40 @@ export default function VideoCard({ title, description, videoUrl, image, variant
       animate={{ opacity: 1 }}
       className="relative w-full h-[calc(100vh-4rem)] min-h-[600px] max-h-[800px] bg-black snap-start snap-always overflow-hidden"
     >
-      {isVisible && isYouTubeVideo && embedUrl ? (
-        <iframe
-          src={`${embedUrl}?autoplay=1&mute=0&controls=1&showinfo=0&rel=0&loop=1&playlist=${videoId}&modestbranding=1`}
-          title={title}
-          className="absolute inset-0 w-full h-full"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-          loading="lazy"
-        />
-      ) : (
-        <div className="absolute inset-0">
-          <Image
-            src={image}
-            alt={title}
-            fill
-            className="object-cover transform hover:scale-105 transition-transform duration-700"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            priority
-          />
-        </div>
+      {isVisible && (
+        <>
+          {isYouTubeVideo && embedUrl ? (
+            <iframe
+              src={`${embedUrl}?autoplay=1&mute=0&controls=1&showinfo=0&rel=0&loop=1&playlist=${videoId}&modestbranding=1`}
+              title={title}
+              className="absolute inset-0 w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              loading="lazy"
+            />
+          ) : isDirectVideo ? (
+            <video
+              src={videoUrl}
+              className="absolute inset-0 w-full h-full object-cover"
+              autoPlay
+              loop
+              muted
+              playsInline
+              controls
+            />
+          ) : (
+            <div className="absolute inset-0">
+              <Image
+                src={image}
+                alt={title}
+                fill
+                className="object-cover transform hover:scale-105 transition-transform duration-700"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                priority
+              />
+            </div>
+          )}
+        </>
       )}
 
       {/* Bottom Info Section */}
