@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCollections } from '@/lib/shopify-api';
+import { CollectionsResponse, getCollections } from '@/lib/shopify-api';
 
 const getYouTubeEmbedUrl = (url: string) => {
   if (!url) return '';
@@ -14,16 +14,35 @@ const getYouTubeEmbedUrl = (url: string) => {
   return url;
 };
 
-export async function GET() {
+const MAX_RETRIES = 3;
+const BASE_DELAY = 1000; // 1 second
+
+async function fetchCollectionsWithRetry(retryCount = 0): Promise<CollectionsResponse>	 {
   try {
     const response = await getCollections(5);
     
     if (!response || !response.collections) {
-      return NextResponse.json(
-        { error: 'No collections found' },
-        { status: 404 }
-      );
+      throw new Error('No collections found');
     }
+    
+    return response;
+  } catch (error) {
+    if (retryCount >= MAX_RETRIES) {
+      throw error;
+    }
+
+    // Calculate delay with exponential backoff and jitter
+    const delay = BASE_DELAY * Math.pow(2, retryCount) * (0.5 + Math.random());
+    console.log(`Retrying collections fetch (attempt ${retryCount + 1}/${MAX_RETRIES}) after ${Math.round(delay)}ms`);
+    
+    await new Promise(resolve => setTimeout(resolve, delay));
+    return fetchCollectionsWithRetry(retryCount + 1);
+  }
+}
+
+export async function GET() {
+  try {
+    const response = await fetchCollectionsWithRetry();
     
     // Process collections to ensure proper image URLs
     const processedCollections = response.collections.map((collection) => {
@@ -88,9 +107,14 @@ export async function GET() {
     return NextResponse.json({ collections: processedCollections });
   } catch (error) {
     console.error('Error in collections API:', error);
+    
+    // Return a more specific error message based on the error type
+    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch collections';
+    const status = errorMessage === 'No collections found' ? 404 : 500;
+    
     return NextResponse.json(
-      { error: 'Failed to fetch collections' },
-      { status: 500 }
+      { error: errorMessage },
+      { status }
     );
   }
 } 
