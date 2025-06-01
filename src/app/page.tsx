@@ -1,11 +1,12 @@
 "use client"
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
 import VideoCard from "@/components/VideoCard";
 import { getAllProducts } from "@/lib/shopify-api";
 import { useInView } from "react-intersection-observer";
 import BottomNav from "@/components/BottomNav";
+import { useSearchParams } from "next/navigation";
 
 interface ShopifyProduct {
   id: string;
@@ -71,6 +72,7 @@ interface ProcessedProduct extends ShopifyProduct {
   thumbnail: string;
   hasVideo: boolean;
   variantId: string;
+  tags: string[];
   variants: {
     edges: Array<{
       node: {
@@ -89,14 +91,51 @@ interface ProcessedProduct extends ShopifyProduct {
   };
 }
 
-export default function HomePage() {
+function HomePageContent() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProcessedProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [endCursor, setEndCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const { ref, inView } = useInView();
+  const searchParams = useSearchParams();
+  const currentCategory = searchParams.get('category');
+
+  // Map category values to their corresponding tags
+  const categoryTagMap: Record<string, string[]> = {
+    'luxury': ['luxury', 'luxury collection'],
+    'summer': ['summer', 'summer collection'],
+    'winter': ['winter', 'winter collection'],
+    'mens': ['mens', "men's", "men's collection"],
+    'kids': ['kids', 'kids collection', 'children'],
+    'deals': ['deals', 'sale', 'discount'],
+    'stitched': ['stitched', 'ready to wear'],
+    'unstitched': ['unstitched', 'fabric']
+  };
+
+  // Filter products by category if one is selected
+  const filteredProducts = currentCategory
+    ? products.filter(product => {
+        const categoryTags = categoryTagMap[currentCategory.toLowerCase()] || [];
+        console.log('Current Category:', currentCategory);
+        console.log('Category Tags to match:', categoryTags);
+        console.log('Product:', product.title);
+        console.log('Product Tags:', product.tags);
+        
+        const matches = product.tags.some(tag => 
+          categoryTags.some(categoryTag => 
+            tag.toLowerCase() === categoryTag.toLowerCase()
+          )
+        );
+        
+        console.log('Product matches:', matches);
+        return matches;
+      })
+    : products;
+
+  console.log('Total products:', products.length);
+  console.log('Filtered products:', filteredProducts.length);
 
   const getVideoUrl = useCallback((url: string, host?: string, mediaType?: string): string => {
     if (!url) return '';
@@ -176,6 +215,8 @@ export default function HomePage() {
         return;
       }
 
+      console.log('API Response Products:', response.products);
+
       const processedProducts: ProcessedProduct[] = response.products.map(product => {
         const videoMedia = product.media?.find((m) => m.type === 'VIDEO');
         const externalVideoMedia = product.media?.find((m) => m.type === 'EXTERNAL_VIDEO');
@@ -233,7 +274,8 @@ export default function HomePage() {
           hasVideo: !!videoUrl,
           image: thumbnail,
           mediaType,
-          category: 'Uncategorized',
+          category: product.tags?.[0] || 'Uncategorized',
+          tags: product.tags || [],
           variants: {
             edges: variants.map(variant => ({
               node: {
@@ -249,6 +291,11 @@ export default function HomePage() {
           },
           variantId: variants[0]?.id || ''
         };
+
+        console.log('Processed Product:', {
+          title: processedProduct.title,
+          tags: processedProduct.tags
+        });
 
         return processedProduct;
       });
@@ -326,13 +373,13 @@ export default function HomePage() {
         <Sidebar />
         <main className="flex-1">
           <div className="snap-y snap-mandatory h-screen overflow-y-auto">
-            {products.length === 0 ? (
+            {filteredProducts.length === 0 ? (
               <div className="h-screen flex items-center justify-center text-white">
                 <p>No products available</p>
               </div>
             ) : (
               <>
-                {products.map((product) => (
+                {filteredProducts.map((product) => (
                   <div key={product.id} className="h-screen">
                     <VideoCard
                       id={product.id}
@@ -350,7 +397,7 @@ export default function HomePage() {
                   {loading && (
                     <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
                   )}
-                  {!hasMore && !loading && products.length > 0 && (
+                  {!hasMore && !loading && filteredProducts.length > 0 && (
                     <p className="text-white/60">No more products to load</p>
                   )}
                 </div>
@@ -361,6 +408,18 @@ export default function HomePage() {
       </div>
       <BottomNav />
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
+      </div>
+    }>
+      <HomePageContent />
+    </Suspense>
   );
 }
 

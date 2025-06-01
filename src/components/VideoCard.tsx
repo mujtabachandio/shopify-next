@@ -210,8 +210,8 @@ export default function VideoCard({ title, description, videoUrl, image, variant
                 <p className="text-sm text-white/80 font-medium">{category}</p>
               </div>
               <div className="flex flex-col items-end space-y-2">
-                <span className="text-xl font-bold text-white bg-black/30 px-3 py-1 rounded-full backdrop-blur-sm">
-                  {selectedVariant?.price.currencyCode} {selectedVariant?.price.amount.toLocaleString()}
+                <span className="text-xl font-bold text-white bg-black/30 px-3 py-1 rounded-full backdrop-blur-sm whitespace-nowrap">
+                  PKR {selectedVariant?.price.amount.toLocaleString()}
                 </span>
               </div>
             </div>
@@ -369,14 +369,14 @@ export default function VideoCard({ title, description, videoUrl, image, variant
       <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-6 pb-10 bg-gradient-to-t from-black/95 via-black/70 to-transparent">
         <div className="space-y-4">
           {/* Title and Price */}
-          <div className="flex items-center justify-center">
+          <div className="flex items-start justify-between">
             <div className="space-y-1">
               <h2 className="text-2xl font-bold text-white drop-shadow-lg">{title}</h2>
               <p className="text-sm text-white/80 font-medium">{category}</p>
             </div>
-            <div className="flex justify-center items-center">
-              <span className="text-white bg-black/30 px-3 py-1 rounded-full backdrop-blur-sm">
-                {selectedVariant?.price.currencyCode} {selectedVariant?.price.amount.toLocaleString()}
+            <div className="flex flex-col items-end space-y-2">
+              <span className="text-xl font-bold text-white bg-black/30 px-3 py-1 rounded-full backdrop-blur-sm whitespace-nowrap">
+                PKR {selectedVariant?.price.amount.toLocaleString()}
               </span>
             </div>
           </div>
@@ -467,8 +467,8 @@ export default function VideoCard({ title, description, videoUrl, image, variant
             ) : (
               <div className="flex items-center space-x-2">
                 <ShoppingCartIcon className="w-5 h-5" />
-                <span>
-                  Add to Cart - {selectedVariant?.price.currencyCode} {selectedVariant?.price.amount.toLocaleString()}
+                <span className="whitespace-nowrap">
+                  Add to Cart - PKR {selectedVariant?.price.amount.toLocaleString()}
                 </span>
               </div>
             )}

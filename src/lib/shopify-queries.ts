@@ -87,6 +87,7 @@ export const GET_PRODUCT = gql`
       title
       description
       handle
+      tags
       images(first: 10) {
         edges {
           node {
@@ -147,6 +148,7 @@ export const GET_PRODUCTS_BY_COLLECTION = gql`
             title
             handle
             description
+            tags
             images(first: 1) {
               edges {
                 node {

@@ -53,6 +53,7 @@ export interface Product {
   handle: string;
   description: string;
   status?: string;
+  tags: string[];
   media: Media[];
   price: {
     amount: number;
@@ -131,6 +132,7 @@ interface ShopifyResponse {
     title: string;
     description: string;
     handle: string;
+    tags: string[];
     price: {
       amount: number;
       currencyCode: string;
@@ -227,6 +229,7 @@ interface GraphQLProductResponse {
     title: string;
     handle: string;
     description: string;
+    tags: string[];
     media: {
       edges: Array<{
         node: GraphQLMediaNode;
@@ -261,6 +264,7 @@ interface GraphQLCollectionResponse {
           title: string;
           handle: string;
           description: string;
+          tags: string[];
           media: {
             edges: Array<{
               node: {
@@ -315,6 +319,7 @@ interface GraphQLProductsResponse {
         title: string;
         handle: string;
         description: string;
+        tags: string[];
         media: {
           edges: Array<{
             node: GraphQLMediaNode;
@@ -492,6 +497,7 @@ export async function getProduct(handle: string): Promise<Product | null> {
       title: product.title,
       handle: product.handle,
       description: product.description,
+      tags: product.tags || [],
       media: product.media.edges.map((mediaEdge) => ({
         type: mediaEdge.node.mediaContentType,
         videoUrl: mediaEdge.node.mediaContentType === 'VIDEO' ? mediaEdge.node.sources?.[0]?.url : undefined,
@@ -542,6 +548,7 @@ export async function getProductsByCollection(
         title: node.title,
         handle: node.handle,
         description: node.description,
+        tags: node.tags || [],
         media: node.media.edges.map((mediaEdge) => ({
           type: mediaEdge.node.mediaContentType,
           videoUrl: mediaEdge.node.mediaContentType === 'VIDEO' ? mediaEdge.node.sources?.[0]?.url : undefined,
@@ -637,6 +644,7 @@ export async function getAllProducts(first: number = 50, after?: string): Promis
           title: node.title,
           handle: node.handle,
           description: node.description,
+          tags: node.tags || [],
           media,
           price: {
             amount: parseFloat(variants[0].price.amount),
@@ -707,6 +715,7 @@ export async function getProductByHandle(handle: string): Promise<ShopifyRespons
           title: product.title,
           handle: product.handle,
           description: product.description,
+          tags: product.tags || [],
           media: product.media.edges.map((mediaEdge) => ({
             type: mediaEdge.node.mediaContentType,
             videoUrl: mediaEdge.node.mediaContentType === 'VIDEO' ? mediaEdge.node.sources?.[0]?.url : undefined,

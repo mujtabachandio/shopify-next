@@ -10,8 +10,6 @@ function SidebarContent() {
   const router = useRouter();
   const currentCategory = searchParams.get('category');
 
-  // Close sidebar when route changes on mobile
-
   const menuItems = [
     {
       name: 'Home',
@@ -36,14 +34,14 @@ function SidebarContent() {
   ];
 
   const categories = [
-    { icon: FaCrown, label: "Luxury Collection", value: "luxury" },
-    { icon: FaSun, label: "Summer", value: "summer" },
-    { icon: FaSnowflake, label: "Winter", value: "winter" },
-    { icon: FaMale, label: "Men's", value: "mens" },
-    { icon: FaChild, label: "Kids Accessories", value: "kids" },
-    { icon: FaTag, label: "Deals", value: "deals" },
-    { icon: FaTag, label: "Stitched", value: "stitched" },
-    { icon: FaTag, label: "Unstitched", value: "unstitched" },
+    { icon: FaCrown, label: "Luxury Collection", value: "luxury", tags: ["luxury", "luxury collection"] },
+    { icon: FaSun, label: "Summer", value: "summer", tags: ["summer", "summer collection"] },
+    { icon: FaSnowflake, label: "Winter", value: "winter", tags: ["winter", "winter collection"] },
+    { icon: FaMale, label: "Men's", value: "mens", tags: ["mens", "men's", "men's collection"] },
+    { icon: FaChild, label: "Kids Accessories", value: "kids", tags: ["kids", "kids collection", "children"] },
+    { icon: FaTag, label: "Deals", value: "deals", tags: ["deals", "sale", "discount"] },
+    { icon: FaTag, label: "Stitched", value: "stitched", tags: ["stitched", "ready to wear"] },
+    { icon: FaTag, label: "Unstitched", value: "unstitched", tags: ["unstitched", "fabric"] },
   ];
 
   const handleCategoryClick = (category: string) => {
@@ -53,13 +51,13 @@ function SidebarContent() {
     } else {
       params.set('category', category);
     }
-    router.push(`${pathname}?${params.toString()}`);
+    router.push(`/?${params.toString()}`);
   };
 
   const clearFilter = () => {
     const params = new URLSearchParams(searchParams.toString());
     params.delete('category');
-    router.push(`${pathname}?${params.toString()}`);
+    router.push('/');
   };
 
   return (

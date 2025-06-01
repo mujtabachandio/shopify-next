@@ -86,6 +86,8 @@ function CollectionsContent() {
     const fetchProducts = async () => {
       try {
         const response = await getAllProducts(100);
+        console.log('API Response:', response);
+        
         const processedProducts = (response.products as unknown as ShopifyProduct[]).map((product) => {
           // Get the first media item
           const firstMedia = product.media[0];
@@ -111,15 +113,14 @@ function CollectionsContent() {
             }
           }
 
-          // Get categories from both tags and collections
+          // Get categories from tags only
           const tags = product.tags || [];
-          const collections = product.collections?.edges.map((edge) => edge.node.title) || [];
+          console.log('Product:', product.title);
+          console.log('Original Tags:', tags);
           
-          // Combine tags and collections for better categorization
-          const allCategories = Array.from(new Set([...tags, ...collections]));
-          
-          // Use the first category as the primary category
-          const primaryCategory = allCategories[0] || 'uncategorized';
+          // Use the first tag as the primary category
+          const primaryCategory = tags.length > 0 ? tags[0] : 'uncategorized';
+          console.log('Primary Category:', primaryCategory);
 
           return {
             id: product.id,
@@ -130,11 +131,12 @@ function CollectionsContent() {
             videoUrl,
             category: primaryCategory,
             tags,
-            collections,
+            collections: product.collections?.edges.map((edge) => edge.node.title) || [],
             media: product.media
           } as Product;
         });
 
+        console.log('Processed Products:', processedProducts);
         setProducts(processedProducts);
       } catch (error) {
         console.error('Error fetching products:', error);
@@ -162,12 +164,37 @@ function CollectionsContent() {
 
   // Filter products by category if one is selected
   const filteredProducts = currentCategory
-    ? products.filter(product => 
-        product.category?.toLowerCase() === currentCategory.toLowerCase() ||
-        product.tags.some((tag: string) => tag.toLowerCase() === currentCategory.toLowerCase()) ||
-        product.collections.some((collection: string) => collection.toLowerCase() === currentCategory.toLowerCase())
-      )
+    ? products.filter(product => {
+        // Map category values to their corresponding tags
+        const categoryTagMap: Record<string, string[]> = {
+          'luxury': ['luxury', 'luxury collection'],
+          'summer': ['summer', 'summer collection'],
+          'winter': ['winter', 'winter collection'],
+          'mens': ['mens', "men's", "men's collection"],
+          'kids': ['kids', 'kids collection', 'children'],
+          'deals': ['deals', 'sale', 'discount'],
+          'stitched': ['stitched', 'ready to wear'],
+          'unstitched': ['unstitched', 'fabric']
+        };
+
+        const categoryTags = categoryTagMap[currentCategory.toLowerCase()] || [];
+        console.log('Current Category:', currentCategory);
+        console.log('Category Tags to match:', categoryTags);
+        console.log('Product Tags:', product.tags);
+        
+        const matches = product.tags.some(tag => 
+          categoryTags.some(categoryTag => 
+            tag.toLowerCase() === categoryTag.toLowerCase()
+          )
+        );
+        
+        console.log('Product matches:', matches);
+        return matches;
+      })
     : products;
+
+  console.log('Total products:', products.length);
+  console.log('Filtered products:', filteredProducts.length);
 
   if (isLoading) {
     return (
