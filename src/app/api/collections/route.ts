@@ -5,11 +5,11 @@ const getYouTubeEmbedUrl = (url: string) => {
   if (!url) return '';
   if (url.includes('youtu.be')) {
     const videoId = url.split('/').pop();
-    return videoId ? `https://www.youtube.com/embed/${videoId}` : '';
+    return videoId ? `https://www.youtube.com/embed/${videoId}?mute=1` : '';
   }
   if (url.includes('youtube.com')) {
     const videoId = new URL(url).searchParams.get('v');
-    return videoId ? `https://www.youtube.com/embed/${videoId}` : '';
+    return videoId ? `https://www.youtube.com/embed/${videoId}?mute=1` : '';
   }
   return url;
 };
@@ -98,7 +98,19 @@ export async function GET() {
               amount: parseFloat(product.price?.amount?.toString() || '0'),
               currencyCode: product.price?.currencyCode || 'PKR'
             },
-            variants: product.variants
+            variants: {
+              edges: product.variants?.edges?.map(edge => ({
+                node: {
+                  id: edge.node.id,
+                  price: {
+                    amount: edge.node.price.amount.toString(),
+                    currencyCode: edge.node.price.currencyCode
+                  },
+                  availableForSale: edge.node.availableForSale ?? true,
+                  selectedOptions: edge.node.selectedOptions || []
+                }
+              })) || []
+            }
           };
         }),
       };

@@ -137,7 +137,7 @@ export default function ProductMediaReel({ media, className = '' }: ProductMedia
             );
           }
 
-          const embedUrl = `https://www.youtube.com/embed/${videoId}?modestbranding=1&rel=0`;
+          const embedUrl = `https://www.youtube.com/embed/${videoId}?modestbranding=1&rel=0&mute=0`;
           console.log('Generated embed URL:', embedUrl);
 
           return (

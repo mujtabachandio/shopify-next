@@ -346,7 +346,7 @@ export default function VideoCard({ title, description, videoUrl, image, variant
               className="absolute inset-0 w-full h-full object-cover"
               autoPlay
               loop
-              muted
+              muted={false}
               playsInline
               controls
             />
