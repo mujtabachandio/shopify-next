@@ -574,10 +574,11 @@ export async function getProductsByCollection(
 export async function getAllProducts(first: number = 50, after?: string): Promise<ShopifyResponse> {
   const maxRetries = 3;
   let retryCount = 0;
+  const baseDelay = 1000; // 1 second
 
   while (retryCount < maxRetries) {
     try {
-      console.log('Fetching all products with params:', { first, after });
+      console.log(`Fetching all products (attempt ${retryCount + 1}/${maxRetries})`);
       
       const response = await client.request(GET_ALL_PRODUCTS, {
         first,
@@ -590,18 +591,7 @@ export async function getAllProducts(first: number = 50, after?: string): Promis
       }
 
       const products = response.products.edges.map(({ node }) => {
-        console.log('Processing product:', node.title);
-        console.log('Product variants:', JSON.stringify(node.variants.edges, null, 2));
-        
         const media = node.media.edges.map(({ node: mediaNode }) => {
-          console.log('Processing media node:', {
-            type: mediaNode.mediaContentType,
-            sources: mediaNode.sources,
-            embedUrl: mediaNode.embedUrl,
-            host: mediaNode.host,
-            originUrl: mediaNode.originUrl
-          });
-
           const mediaItem: Media = {
             type: mediaNode.mediaContentType,
           };
@@ -627,25 +617,18 @@ export async function getAllProducts(first: number = 50, after?: string): Promis
               break;
 
             case 'EXTERNAL_VIDEO':
-              console.log('Processing external video:', {
-                embedUrl: mediaNode.embedUrl,
-                host: mediaNode.host,
-                originUrl: mediaNode.originUrl
-              });
               mediaItem.embedUrl = mediaNode.embedUrl;
               mediaItem.host = mediaNode.host;
               mediaItem.originUrl = mediaNode.originUrl;
               break;
           }
 
-          console.log('Processed media item:', mediaItem);
           return mediaItem;
         });
 
-        // Get all available variants
         const variants = node.variants.edges.map(edge => edge.node);
         if (variants.length === 0) {
-          console.error('No variants found for product:', node.title);
+          console.warn('No variants found for product:', node.title);
           return null;
         }
 
@@ -671,20 +654,43 @@ export async function getAllProducts(first: number = 50, after?: string): Promis
         endCursor: response.products.pageInfo.endCursor
       };
     } catch (error) {
+      const graphqlError = error as { response?: { status: number, errors?: Array<{ message: string }> } };
+      
+      // Check if it's an internal server error
+      if (graphqlError.response?.errors?.[0]?.message?.includes('Internal error')) {
+        console.warn(`Shopify API internal error (attempt ${retryCount + 1}/${maxRetries})`);
+        retryCount++;
+        
+        if (retryCount === maxRetries) {
+          console.error('Max retries reached, returning empty response');
+          return { products: [], hasNextPage: false };
+        }
+        
+        // Exponential backoff with jitter
+        const delay = baseDelay * Math.pow(2, retryCount) * (0.5 + Math.random());
+        console.log(`Waiting ${Math.round(delay)}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      // Handle other types of errors
       handleGraphQLError(error);
       console.error(`Error fetching products (attempt ${retryCount + 1}/${maxRetries}):`, error);
       retryCount++;
       
       if (retryCount === maxRetries) {
-        throw error;
+        console.error('Max retries reached, returning empty response');
+        return { products: [], hasNextPage: false };
       }
       
-      // Wait before retrying (exponential backoff)
-      await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+      // Wait before retrying
+      const delay = baseDelay * Math.pow(2, retryCount);
+      console.log(`Waiting ${Math.round(delay)}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
 
-  throw new Error('Failed to fetch products after multiple retries');
+  return { products: [], hasNextPage: false };
 }
 
 export async function getProductByHandle(handle: string): Promise<ShopifyResponse> {
